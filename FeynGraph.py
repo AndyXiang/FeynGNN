@@ -1,11 +1,11 @@
 import torch 
 
 
-class FeyGraph():
-    def __init__(self,num_nodes,num_edges,index_list,amp):
+class FeynGraph():
+    def __init__(self,num_nodes,num_edges,amp):
         self.num_nodes = num_nodes
         self.num_edges = num_edges 
-        self.index_list = index_list 
+        #self.index_list = index_list 
         self.amp = amp 
         self.feat_nodes = []
         self.feat_edges = []
@@ -59,7 +59,7 @@ class FeyGraph():
         """    
         Abandoned for instance.
         """
-        pass 
+        return self.feat_edges
 
     def get_adj(self):
         return self.adj 

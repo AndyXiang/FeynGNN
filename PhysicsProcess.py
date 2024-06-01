@@ -1,11 +1,20 @@
 import torch
-import numpy
-from FeyGraph import FeyGraph
+import numpy as np
+from FeynGraph import FeynGraph
 from math import cos
 
-mass = {'electron': 0.51099895, 'muon':'105.6583775', 'photon':0}
+mass = {'electron': 0.51099895, 'muon':105.6583775, 'photon':0}
 
-def PairAnnihilation(Ecm, in_particle:str, out_particle:str, out_ang):
+Proc_List = ['PairAnnihilation','ColumbScattering','BhabhaScattering','MollerScattering']
+
+Index_List = {
+    'PairAnnihilation': torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64),
+    'BhabhaScattering': torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64),
+    'MollerScattering': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64),
+    'ColumbScattering': torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64)
+}
+
+def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
     if Ecm>mass[in_particle]:
         if Ecm>mass[out_particle]:
             pass 
@@ -13,7 +22,7 @@ def PairAnnihilation(Ecm, in_particle:str, out_particle:str, out_ang):
             raise ValueError('PairAnnihilation: energy in center-of-mass frame shall be greater than the mass of incoming particle. The mass of incoming particle is '+str(mass[in_particle])+', and the energy is '+str(Ecm)+'.')
     else:
         raise ValueError('PairAnnihilation: energy in center-of-mass frame shall be greater than the mass of incoming particle. The mass of incoming particle is '+str(mass[in_particle])+', and the energy is '+str(Ecm)+'.')
-    graph = FeyGraph(num_nodes=5, num_edges=6, amplitude=0)
+    graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
     adj = torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[-1,1],[1,1],[1,1],[1,1],[1,1],[-1,1]],dtype=torch.int64
@@ -36,16 +45,16 @@ def PairAnnihilation(Ecm, in_particle:str, out_particle:str, out_ang):
     graph.set_feat_nodes(node_feat)
     graph.set_feat_edges(edge_feat)
     graph.set_amp(amp)
-    graph.set_adj()
+    #graph.set_adj()
     return graph
 
 
-def ColumbScattering(Ecm, charge:int, out_ang):
+def ColumbScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
     if Ecm**2>mass['muon']**2-mass['electron']**2:
         pass
     else:
         raise ValueError('ColumbScattering: energy in center-of-mass frame shall be greater than '+str((mass['muon']**2-mass['electron']**2)**0.5)+', but got '+str(Ecm)+'.')
-    graph = FeyGraph(num_nodes=5, num_edges=6, amplitude=0)
+    graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
     torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[1,1],[-1,1],[1,1],[-1,1],[1,1],[-1,1]],dtype=torch.int64
@@ -68,15 +77,15 @@ def ColumbScattering(Ecm, charge:int, out_ang):
     graph.set_feat_nodes(node_feat)
     graph.set_feat_edges(edge_feat)
     graph.set_amp(amp)
-    graph.set_adj()
+    #graph.set_adj()
     return graph
 
-def BhabhaScattering(Ecm, in_particle:str, out_ang):
+def BhabhaScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
     if Ecm>mass[in_particle]:
         pass
     else:
         raise ValueError('BhabhaScattering: energy in center-of-mass frame shall be greater than mass of the incoming particle ('+str((mass['muon']**2-mass['electron']**2)**0.5)+'), but got '+str(Ecm)+'.')
-    graph = feynmanGraph(num_nodes=5, num_edges=8, amplitude=0)
+    graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
     adj = torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[-1,1],[1,2],[-1,1],[1,2],[-1,1],[1,2],[1,2],[-1,1]],dtype=torch.int64
@@ -100,15 +109,15 @@ def BhabhaScattering(Ecm, in_particle:str, out_ang):
     graph.set_feat_nodes(node_feat)
     graph.set_feat_edges(edge_feat)
     graph.set_amp(amp)
-    graph.set_adj()
+    #graph.set_adj()
     return graph
 
-def MøllerScattering(Ecm, in_particle:str, charge:int, out_ang):
+def MollerScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
     if Ecm>mass[in_particle]:
         pass
     else:
         raise ValueError('MøllerScattering: energy in center-of-mass frame shall be greater than mass of the incoming particle ('+str((mass['muon']**2-mass['electron']**2)**0.5)+'), but got '+str(Ecm)+'.')
-    graph = feynmanGraph(num_nodes=5, num_edges=8, amplitude=0)
+    graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
     adj = torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[1,2],[-1,1],[-1,1],[1,2],[-1,1],[-1,1],[1,2],[1,2]],dtype=torch.int64
@@ -132,7 +141,7 @@ def MøllerScattering(Ecm, in_particle:str, charge:int, out_ang):
     graph.set_feat_nodes(node_feat)
     graph.set_feat_edges(edge_feat)
     graph.set_amp(amp)
-    graph.set_adj()
+    #graph.set_adj()
     return graph
 
 
