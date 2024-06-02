@@ -77,11 +77,11 @@ class GNNModel(nn.Module):
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(1024,512),
-            nn.BatchNorm1d(512),
+            nn.Linear(1024,1024),
+            nn.BatchNorm1d(1024),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(512,128),
+            nn.Linear(1024,128),
             nn.BatchNorm1d(128),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
@@ -196,10 +196,10 @@ def Figuring(model, proc_list,dir_root):
 
 
 if __name__ == '__main__':
-    dr = '/Users/andy/MainLand/Python/FeynGNN/data/'
+    dr = '/Users/andy/MainLand/Python/data/'
     gr = dh.GraphSet(proc_list=[])
     gr.reader(dir_root=dr)
     trainset, testset, valiset = gr.spliter()
-    model = Training(trainset, testset,num_epoch=20,num_convs=2)
+    model = Training(trainset, testset,num_epoch=20,num_convs=2,lr=0.02,node_emb_dim=20,edge_emb_dim=2)
     Validating(model, valiset)
     Figuring(model, proc_list=trainset.proc_list, dir_root='/Users/andy/MainLand/Python/validatingFIG/')

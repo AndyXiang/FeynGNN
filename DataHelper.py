@@ -118,7 +118,7 @@ def HardNormalize(vec):
 if __name__ == '__main__':
     dr = '/Users/andy/MainLand/Python/data/'
     gr = GraphSet(proc_list=pp.Proc_List)
-    gr.creator(size=20000)
+    gr.creator(size=10000)
     gr.saver(dir_root=dr)
 
 
