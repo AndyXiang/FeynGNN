@@ -25,7 +25,7 @@ def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
     adj = torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
-        [[-1,1],[1,1],[1,1],[1,1],[1,1],[-1,1]],dtype=torch.int64
+        [[-1,1],[1,1],[1,1],[1,1],[1,1],[-1,1]],dtype=torch.float
     )
     E_in, E_out = Ecm/2, Ecm/2
     p_in, p_out = (E_in**2 - mass[in_particle]**2)**0.5, (E_out**2 - mass[out_particle]**2)**0.5
@@ -57,7 +57,7 @@ def ColumbScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
     torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
-        [[1,1],[-1,1],[1,1],[-1,1],[1,1],[-1,1]],dtype=torch.int64
+        [[1,1],[-1,1],[1,1],[-1,1],[1,1],[-1,1]],dtype=torch.float
     )
     E_e = (Ecm**2+mass['electron']**2-mass['muon']**2)/(2*Ecm)
     E_mu = (Ecm**2-mass['electron']**2+mass['muon']**2)/(2*Ecm)
@@ -88,7 +88,7 @@ def BhabhaScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
     adj = torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
-        [[-1,1],[1,2],[-1,1],[1,2],[-1,1],[1,2],[1,2],[-1,1]],dtype=torch.int64
+        [[-1,1],[1,2],[-1,1],[1,2],[-1,1],[1,2],[1,2],[-1,1]],dtype=torch.float
     )
     E_in, E_out = Ecm/2, Ecm/2
     p_in = (E_in**2 - mass[in_particle]**2)**0.5
@@ -120,7 +120,7 @@ def MollerScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
     adj = torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
-        [[1,2],[-1,1],[-1,1],[1,2],[-1,1],[-1,1],[1,2],[1,2]],dtype=torch.int64
+        [[1,2],[-1,1],[-1,1],[1,2],[-1,1],[-1,1],[1,2],[1,2]],dtype=torch.float
     )
     E_in, E_out = Ecm/2, Ecm/2
     p_in = (E_in**2 - mass[in_particle]**2)**0.5

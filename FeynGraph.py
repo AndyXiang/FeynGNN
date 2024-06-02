@@ -37,12 +37,12 @@ class FeynGraph():
     def set_feat_edges(self, feat):
         if isinstance(feat, torch.Tensor):
             if feat.size() == torch.Size([self.num_edges,2]):
-                if feat.dtype == torch.int64:
+                if feat.dtype == torch.float:
                     self.feat_edges = feat
                 else:
-                    raise ValueError('Incorrect shape for edges` feature matrix, expected to be ['+str(self.num_edges)+', 2], but got '+str(list(feat.shape))+'.')
+                    raise ValueError('Incorrect data type for edges` feature matrix, expected to be int64, but got '+str(feat.dtype)+'.')
             else:
-                raise ValueError('Incorrect data type for edges` feature matrix, expected to be int64, but got '+str(feat.dtype)+'.')
+                raise ValueError('Incorrect shape for edges` feature matrix, expected to be ['+str(self.num_edges)+', 2], but got '+str(list(feat.shape))+'.')
         else:
             raise TypeError('Edges` feature matrix expected to be a torch tensor.')
 

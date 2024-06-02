@@ -104,8 +104,8 @@ class GraphSet:
             for j in range(len(pp.Index_List[proc_list[i]][0])):
                 subset = df.iloc[:,30+2*j:32+2*j]
                 temp.append(torch.tensor(subset.values,dtype=torch.int64).view(size,1,2))
-            feat_edges.append(torch.cat(temp,dim=1))
-            amp.append(torch.tensor(df.iloc[:,-1].values,dtype=torch.float))
+            feat_edges.append(torch.cat(temp,dim=1).float())
+            amp.append(HardNormalize(torch.tensor(df.iloc[:,-1].values,dtype=torch.float)))
         self.proc_list = proc_list
         self.amp = amp 
         self.feat_edges = feat_edges
@@ -116,11 +116,10 @@ def HardNormalize(vec):
     return (vec - min(vec)) / (max(vec) - min(vec))
 
 if __name__ == '__main__':
-    dr = '/Users/andy/MainLand/Python/GNN for QED/datastore/test/'
-    gs = GraphSet(proc_list=[])
-    gs.reader(dr)
-    ts,_,_ = gs.spliter()
-    print(ts.amp)
+    dr = '/Users/andy/MainLand/Python/data/'
+    gr = GraphSet(proc_list=pp.Proc_List)
+    gr.creator(size=20000)
+    gr.saver(dir_root=dr)
 
 
 
