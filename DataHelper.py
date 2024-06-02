@@ -43,7 +43,7 @@ class GraphSet:
         for p in range(len(self.proc_list)):
             proc = self.proc_list[p]
             index = pp.Index_List[proc]
-            filename = dir_root + proc +'_data.csv'
+            filename = dir_root +proc +'_data.csv'
             datadic = {}
             for i in range(5):#5 is num_node
                 datadic['mass'+str(i)] = self.feat_nodes[p][:,i,0]
@@ -87,7 +87,7 @@ class GraphSet:
         for root, dirs, filenames in os.walk(dir_root):
             for filename in filenames:
                 file_list.append(os.path.join(root, filename))
-                proc_list.append(os.path.join(root, filename).split('/')[-1].split('_')[0])
+                proc_list.append(os.path.join(root, filename).split('\\')[-1].split('_')[0])
         feat_nodes = []
         feat_edges = []
         amp = []
@@ -116,10 +116,11 @@ def HardNormalize(vec):
     return (vec - min(vec)) / (max(vec) - min(vec))
 
 if __name__ == '__main__':
-    dr = '/Users/andy/MainLand/Python/data/'
+    dr = "D:\\Python\\data\\"
     gr = GraphSet(proc_list=pp.Proc_List)
-    gr.creator(size=10000)
+    gr.creator(size=10000,random_energy=True)
     gr.saver(dir_root=dr)
+
 
 
 

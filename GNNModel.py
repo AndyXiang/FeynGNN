@@ -19,21 +19,20 @@ class GCNLayer(MessagePassing):
             nn.Linear(2*node_emb_dim+edge_emb_dim, node_emb_dim),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
+            nn.Linear(node_emb_dim,node_emb_dim),
+            nn.LeakyReLU(inplace=True),
         )
-        for layer in self.msg:
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
-                nn.init.constant_(layer.bias, 0)
+
         self.upd = nn.Sequential(
             nn.Linear(2*node_emb_dim, node_emb_dim),
             nn.BatchNorm1d(5),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
+            nn.Linear(node_emb_dim,node_emb_dim),
+            nn.BatchNorm1d(5),
+            nn.LeakyReLU(inplace=True),
         )
-        for layer in self.upd:
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
-                nn.init.constant_(layer.bias, 0)
+
 
     def forward(self, h, edge_index, edge_attr):
         out = self.propagate(edge_index, h=h, edge_attr=edge_attr)
@@ -55,43 +54,35 @@ class GNNModel(nn.Module):
         super().__init__()
         self.node_emb_dim = node_emb_dim
         self.node_emb = nn.Linear(node_feat_dim, node_emb_dim)
-        nn.init.xavier_uniform_(self.node_emb.weight)
-        nn.init.constant_(self.node_emb.bias, 0)
+
 
         self.edge_emb = nn.Linear(edge_feat_dim, edge_emb_dim)
-        nn.init.xavier_uniform_(self.edge_emb.weight)
-        nn.init.constant_(self.edge_emb.bias, 0)
+
         
         self.pool =  nn.Sequential(
             nn.Linear(5*node_emb_dim,node_emb_dim),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
         )
-        for layer in self.pool:
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
-                nn.init.constant_(layer.bias, 0)
+
 
         self.MLP = nn.Sequential(
             nn.Linear(node_emb_dim, 1024),
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(1024,1024),
-            nn.BatchNorm1d(1024),
+            nn.Linear(1024,512),
+            nn.BatchNorm1d(512),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(1024,128),
+            nn.Linear(512,128),
             nn.BatchNorm1d(128),
             nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(128,8),
-            nn.AvgPool1d(8),
+            nn.MaxPool1d(8),
         )
-        for layer in self.MLP:
-            if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
-                nn.init.constant_(layer.bias, 0)
+
 
         self.num_convs = num_convs
         self.convs = nn.ModuleList()
@@ -113,7 +104,7 @@ class GNNModel(nn.Module):
         return x
 
 
-def Training(trainset,testset, lr=0.1,batch_size=20,num_epoch=20,loss_limit=0.01,loss_func=F.mse_loss,num_convs=2,node_emb_dim=16,edge_emb_dim=4,GPU=False):
+def Training(trainset,testset, lr=0.1,dropout=0.1,batch_size=20,num_epoch=20,loss_limit=0.01,loss_func=F.mse_loss,num_convs=2,node_emb_dim=16,edge_emb_dim=4,GPU=False):
     len_proc = len(trainset.proc_list)
     proc_list = trainset.proc_list
     edge_index_list = []
@@ -126,7 +117,7 @@ def Training(trainset,testset, lr=0.1,batch_size=20,num_epoch=20,loss_limit=0.01
         batch['node_feat'][i] = torch.cat([trainset.feat_nodes[i][batch_size*j:batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,batch_size,5,6)
         batch['edge_feat'][i] = torch.cat([trainset.feat_edges[i][batch_size*j:batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,batch_size,l,2)
         batch['amp'][i] = torch.cat([trainset.amp[i][batch_size*j:batch_size*(j+1)] for j in range(num_batch)],dim=0).view(num_batch,batch_size)
-    model = GNNModel(num_convs=num_convs,node_emb_dim=node_emb_dim,edge_emb_dim=edge_emb_dim)
+    model = GNNModel(num_convs=num_convs,node_emb_dim=node_emb_dim,edge_emb_dim=edge_emb_dim,dropout=dropout)
     if GPU:
         model.to('cuda')
         for i in range(len_proc):
@@ -134,9 +125,9 @@ def Training(trainset,testset, lr=0.1,batch_size=20,num_epoch=20,loss_limit=0.01
             batch['edge_feat'][i] = batch['edge_feat'][i].to('cuda')
             batch['amp'][i] = batch['amp'][i].to('cuda')
             testset.feat_nodes[i] = testset.feat_nodes[i].to('cuda')
-            testset.feat_edges[i] = testset.feat_egdes[i].to('cuda')
+            testset.feat_edges[i] = testset.feat_edges[i].to('cuda')
             testset.amp[i] = testset.amp[i].to('cuda')
-            edge_index_list[i].to('cuda')
+            edge_index_list[i]=edge_index_list[i].to('cuda')
     order = []
     for i in range(len_proc):
         for _ in range(num_batch):
@@ -196,10 +187,10 @@ def Figuring(model, proc_list,dir_root):
 
 
 if __name__ == '__main__':
-    dr = '/Users/andy/MainLand/Python/data/'
+    dr = "D:\\Python\\data\\"
     gr = dh.GraphSet(proc_list=[])
     gr.reader(dir_root=dr)
     trainset, testset, valiset = gr.spliter()
-    model = Training(trainset, testset,num_epoch=20,num_convs=2,lr=0.02,node_emb_dim=20,edge_emb_dim=2)
+    model = Training(trainset, testset,num_epoch=20,batch_size=20,num_convs=2,lr=0.05,node_emb_dim=16,edge_emb_dim=2,GPU=True,loss_func=F.mse_loss)
     Validating(model, valiset)
-    Figuring(model, proc_list=trainset.proc_list, dir_root='/Users/andy/MainLand/Python/validatingFIG/')
+    Figuring(model, proc_list=trainset.proc_list, dir_root="D:\\Python\\fig\\")
