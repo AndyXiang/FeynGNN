@@ -4,6 +4,7 @@ import numpy as np
 import torch 
 import pandas as pd
 import os 
+import random as rd
 
 
 class GraphSet:
@@ -16,7 +17,7 @@ class GraphSet:
 
 
     def creator(self, size:int=10000,energy_range:tuple=(400,2000),angular_range:tuple=(1,2.5),random_energy=False,seed=None):
-        self.size = 2*size
+        self.size = 4*size
         ang = (angular_range[1]-angular_range[0])*np.random.random(size)+angular_range[0]
         if random_energy:
             np.random.seed(seed)
@@ -34,10 +35,18 @@ class GraphSet:
                 self.feat_nodes[p].append(graph.get_feat_nodes())
                 self.feat_edges[p].append(graph.get_feat_edges())
                 self.amp[p].append(graph.get_amp())
+                graph = proc(ECM[i],-1,'electron','muon',ang[i])
+                self.feat_nodes[p].append(graph.get_feat_nodes())
+                self.feat_edges[p].append(graph.get_feat_edges())
+                self.amp[p].append(graph.get_amp())
+                graph = proc(ECM[i],1,'muon','electron',ang[i])
+                self.feat_nodes[p].append(graph.get_feat_nodes())
+                self.feat_edges[p].append(graph.get_feat_edges())
+                self.amp[p].append(graph.get_amp())
             l = len(self.feat_edges[p][0])
-            self.feat_nodes[p] = torch.cat(self.feat_nodes[p],dim=0).view(2*size,5,6)
-            self.feat_edges[p] = torch.cat(self.feat_edges[p],dim=0).view(2*size,l,2)
-            self.amp[p] = torch.tensor(self.amp[p],dtype=torch.float)
+            self.feat_nodes[p] = TensorShuffle(torch.cat(self.feat_nodes[p],dim=0).view(4*size,5,7))
+            self.feat_edges[p] = TensorShuffle(torch.cat(self.feat_edges[p],dim=0).view(4*size,l,2))
+            self.amp[p] =TensorShuffle(torch.tensor(self.amp[p],dtype=torch.float))
 
     def saver(self, dir_root):
         for p in range(len(self.proc_list)):
@@ -52,6 +61,7 @@ class GraphSet:
                 datadic['energy'+str(i)] = self.feat_nodes[p][:,i,3]
                 datadic['momentum'+str(i)] = self.feat_nodes[p][:,i,4]
                 datadic['angular'+str(i)] = self.feat_nodes[p][:,i,5]
+                datadic['type'+str(i)] = self.feat_nodes[p][:,i,6]
             for i in range(len(self.feat_edges[p][0])):
                 datadic['type'+str(index[0,i].item())+str(index[1,i].item())] = self.feat_edges[p][:,i,0]
                 datadic['counts'+str(index[0,i].item())+str(index[1,i].item())] = self.feat_edges[p][:,i,1]
@@ -94,15 +104,14 @@ class GraphSet:
         for i in range(len(proc_list)):
             df = pd.read_csv(file_list[i])
             size = df.shape[0]
-            subset = df.iloc[:,0:6]
             temp = []
             for j in range(5):
-                subset = df.iloc[:,6*j:6*j+6]
-                temp.append(torch.tensor(subset.values,dtype=torch.float).view(size,1,6))
+                subset = df.iloc[:,7*j:7*j+7]
+                temp.append(torch.tensor(subset.values,dtype=torch.float).view(size,1,7))
             feat_nodes.append(torch.cat(temp,dim=1))
             temp = []
             for j in range(len(pp.Index_List[proc_list[i]][0])):
-                subset = df.iloc[:,30+2*j:32+2*j]
+                subset = df.iloc[:,35+2*j:37+2*j]
                 temp.append(torch.tensor(subset.values,dtype=torch.int64).view(size,1,2))
             feat_edges.append(torch.cat(temp,dim=1).float())
             amp.append(HardNormalize(torch.tensor(df.iloc[:,-1].values,dtype=torch.float)))
@@ -115,11 +124,18 @@ class GraphSet:
 def HardNormalize(vec):
     return (vec - min(vec)) / (max(vec) - min(vec))
 
+def TensorShuffle(tensor, seed=100):
+    torch.manual_seed(seed)
+    index = torch.randperm(tensor.size(0))
+    shuffled_tensor = tensor[index]
+    return shuffled_tensor
+
 if __name__ == '__main__':
     dr = "D:\\Python\\data\\"
-    gr = GraphSet(proc_list=pp.Proc_List)
-    gr.creator(size=10000,random_energy=True)
+    gr = GraphSet(proc_list=["PairAnnihilation","ColumbScattering"])
+    gr.creator(size=3000,random_energy=True)
     gr.saver(dir_root=dr)
+
 
 
 

@@ -13,24 +13,26 @@ import random as rd
 
 
 class GCNLayer(MessagePassing):
-    def __init__(self,node_emb_dim=16,edge_emb_dim=4,aggr='add',dropout=0.2):
+    def __init__(self,node_emb_dim=16,edge_emb_dim=4,aggr='mean',dropout=0.1):
         super().__init__(aggr=aggr)
         self.msg = nn.Sequential(
             nn.Linear(2*node_emb_dim+edge_emb_dim, node_emb_dim),
-            nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
+            nn.Sigmoid(),
             nn.Linear(node_emb_dim,node_emb_dim),
-            nn.LeakyReLU(inplace=True),
+            nn.Dropout(dropout),
+            nn.Sigmoid(),
         )
 
         self.upd = nn.Sequential(
             nn.Linear(2*node_emb_dim, node_emb_dim),
-            nn.BatchNorm1d(5),
-            nn.LeakyReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(node_emb_dim,node_emb_dim),
             nn.BatchNorm1d(5),
-            nn.LeakyReLU(inplace=True),
+            nn.Sigmoid(),
+            nn.Linear(node_emb_dim,node_emb_dim),
+            nn.Dropout(dropout),
+            nn.BatchNorm1d(5),
+            nn.Sigmoid(),
         )
 
 
@@ -50,37 +52,39 @@ class GCNLayer(MessagePassing):
         return self.upd(upd)
 
 class GNNModel(nn.Module):
-    def __init__(self, num_convs=4, node_feat_dim=6, edge_feat_dim=2,out_dim=1, node_emb_dim=16,edge_emb_dim=4,dropout=0.2):
+    def __init__(self, num_convs=4, node_feat_dim=7, edge_feat_dim=2,out_dim=1, node_emb_dim=16,edge_emb_dim=4,dropout=0.2):
         super().__init__()
         self.node_emb_dim = node_emb_dim
-        self.node_emb = nn.Linear(node_feat_dim, node_emb_dim)
+        self.node_emb = nn.Sequential(
+            nn.Linear(node_feat_dim, node_emb_dim),
+            nn.BatchNorm1d(5),
+        )
 
-
-        self.edge_emb = nn.Linear(edge_feat_dim, edge_emb_dim)
-
+        self.edge_emb = nn.Sequential(
+            nn.Linear(edge_feat_dim, edge_emb_dim),
+        )
         
         self.pool =  nn.Sequential(
             nn.Linear(5*node_emb_dim,node_emb_dim),
-            nn.LeakyReLU(inplace=True),
-            nn.Dropout(dropout),
+            nn.BatchNorm1d(node_emb_dim),
+            nn.Sigmoid(),
         )
 
 
         self.MLP = nn.Sequential(
-            nn.Linear(node_emb_dim, 1024),
-            nn.BatchNorm1d(1024),
-            nn.LeakyReLU(inplace=True),
+            nn.Linear(node_emb_dim, 64),
+            nn.BatchNorm1d(64),
+            nn.Sigmoid(),
             nn.Dropout(dropout),
-            nn.Linear(1024,512),
-            nn.BatchNorm1d(512),
-            nn.LeakyReLU(inplace=True),
+            nn.Linear(64,64),
+            nn.BatchNorm1d(64),
+            nn.Sigmoid(),
             nn.Dropout(dropout),
-            nn.Linear(512,128),
-            nn.BatchNorm1d(128),
-            nn.LeakyReLU(inplace=True),
+            nn.Linear(64,64),
+            nn.BatchNorm1d(64),
+            nn.Sigmoid(),
             nn.Dropout(dropout),
-            nn.Linear(128,8),
-            nn.MaxPool1d(8),
+            nn.Linear(64,1),
         )
 
 
@@ -114,7 +118,7 @@ def Training(trainset,testset, lr=0.1,dropout=0.1,batch_size=20,num_epoch=20,los
     num_batch = int(trainset.size/batch_size)
     for i in range(len_proc):
         l = len(trainset.feat_edges[i][0])
-        batch['node_feat'][i] = torch.cat([trainset.feat_nodes[i][batch_size*j:batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,batch_size,5,6)
+        batch['node_feat'][i] = torch.cat([trainset.feat_nodes[i][batch_size*j:batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,batch_size,5,7)
         batch['edge_feat'][i] = torch.cat([trainset.feat_edges[i][batch_size*j:batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,batch_size,l,2)
         batch['amp'][i] = torch.cat([trainset.amp[i][batch_size*j:batch_size*(j+1)] for j in range(num_batch)],dim=0).view(num_batch,batch_size)
     model = GNNModel(num_convs=num_convs,node_emb_dim=node_emb_dim,edge_emb_dim=edge_emb_dim,dropout=dropout)
@@ -172,11 +176,11 @@ def Figuring(model, proc_list,dir_root):
     for p in proc_list:
         index = pp.Index_List[p]
         l = len(pp.Index_List[p][0])
-        for E in [300,800,1500,2000]:
-            proc = getattr(pp, p)
+        proc = getattr(pp, p)
+        for E in [300,800,1500,2000]: 
             amp_theo = torch.tensor([proc(E, 1, 'electron', 'muon', ang[i]).get_amp() for i in range(50)],dtype=torch.float)
             amp_theo = dh.HardNormalize(amp_theo)
-            feat_nodes = torch.cat([proc(E, 1, 'electron', 'muon', ang[i]).get_feat_nodes() for i in range(50)],dim=0).view(50,5,6)
+            feat_nodes = torch.cat([proc(E, 1, 'electron', 'muon', ang[i]).get_feat_nodes() for i in range(50)],dim=0).view(50,5,7)
             feat_edges = torch.cat([proc(E, 1, 'electron', 'muon', ang[i]).get_feat_edges() for i in range(50)],dim=0).view(50,l,2)
             amp_pred = model(feat_nodes, feat_edges, index).view(50).tolist()
             plt.scatter(ang, amp_theo, label='Thepratical Calculation',s=10)
@@ -191,6 +195,6 @@ if __name__ == '__main__':
     gr = dh.GraphSet(proc_list=[])
     gr.reader(dir_root=dr)
     trainset, testset, valiset = gr.spliter()
-    model = Training(trainset, testset,num_epoch=20,batch_size=20,num_convs=2,lr=0.05,node_emb_dim=16,edge_emb_dim=2,GPU=True,loss_func=F.mse_loss)
+    model = Training(trainset, testset,num_epoch=30,batch_size=20,num_convs=4,lr=0.1,node_emb_dim=16,edge_emb_dim=4,GPU=True,loss_func=F.smooth_l1_loss)
     Validating(model, valiset)
     Figuring(model, proc_list=trainset.proc_list, dir_root="D:\\Python\\fig\\")

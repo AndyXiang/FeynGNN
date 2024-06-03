@@ -11,40 +11,43 @@ class FeynGraph():
         self.feat_edges = []
 
     def set_adj(self,adj):
-        if isinstance(adj, torch.Tensor):
-            if adj.size() == torch.Size([2,self.num_edges]):
-                if adj.dtype == torch.int64:
-                    self.index_list = adj
-                else:
-                    raise ValueError('Incorrect shape for adjacency matrix, expected to be [2, '+str(self.num_edges)+'], but got '+str(list(adj.shape))+'.')
-            else:
-                raise ValueError('Incorrect data type for adjacency matrix, expected to be int64, but got '+str(adj.dtype)+'.')
-        else:
-            raise TypeError('Adjacency matrix expected to be a torch tensor.')
+        #if isinstance(adj, torch.Tensor):
+            #if adj.size() == torch.Size([2,self.num_edges]):
+                #if adj.dtype == torch.int64:
+                    #self.index_list = adj
+                #else:
+                    #raise ValueError('Incorrect shape for adjacency matrix, expected to be [2, '+str(self.num_edges)+'], but got '+str(list(adj.shape))+'.')
+            #else:
+                #raise ValueError('Incorrect data type for adjacency matrix, expected to be int64, but got '+str(adj.dtype)+'.')
+        #else:
+            #raise TypeError('Adjacency matrix expected to be a torch tensor.')
+        self.index_list = adj
 
     def set_feat_nodes(self, feat):
-        if isinstance(feat, torch.Tensor):
-            if feat.size() == torch.Size([self.num_nodes,6]):
-                if feat.dtype == torch.float:
-                    self.feat_nodes = feat
-                else:
-                    raise ValueError('Incorrect shape for nodes` feature matrix, expected to be ['+str(self.num_nodes)+', 6], but got '+str(list(feat.shape))+'.')
-            else:
-                raise ValueError('Incorrect data type for nodes` feature matrix, expected to be float, but got '+str(feat.dtype)+'.')
-        else:
-            raise TypeError('Nodes` feature matrix expected to be a torch tensor.')
+        #if isinstance(feat, torch.Tensor):
+            #if feat.size() == torch.Size([self.num_nodes,6]):
+                #if feat.dtype == torch.float:
+                    #self.feat_nodes = feat
+                #else:
+                    #raise ValueError('Incorrect shape for nodes` feature matrix, expected to be ['+str(self.num_nodes)+', 6], but got '+str(list(feat.shape))+'.')
+            #else:
+                #raise ValueError('Incorrect data type for nodes` feature matrix, expected to be float, but got '+str(feat.dtype)+'.')
+        #else:
+            #raise TypeError('Nodes` feature matrix expected to be a torch tensor.')
+        self.feat_nodes = feat
 
     def set_feat_edges(self, feat):
-        if isinstance(feat, torch.Tensor):
-            if feat.size() == torch.Size([self.num_edges,2]):
-                if feat.dtype == torch.float:
-                    self.feat_edges = feat
-                else:
-                    raise ValueError('Incorrect data type for edges` feature matrix, expected to be int64, but got '+str(feat.dtype)+'.')
-            else:
-                raise ValueError('Incorrect shape for edges` feature matrix, expected to be ['+str(self.num_edges)+', 2], but got '+str(list(feat.shape))+'.')
-        else:
-            raise TypeError('Edges` feature matrix expected to be a torch tensor.')
+        #if isinstance(feat, torch.Tensor):
+            #if feat.size() == torch.Size([self.num_edges,2]):
+                #if feat.dtype == torch.float:
+                   # self.feat_edges = feat
+                #else:
+                    #raise ValueError('Incorrect data type for edges` feature matrix, expected to be int64, but got '+str(feat.dtype)+'.')
+            #else:
+                #raise ValueError('Incorrect shape for edges` feature matrix, expected to be ['+str(self.num_edges)+', 2], but got '+str(list(feat.shape))+'.')
+        #else:
+            #raise TypeError('Edges` feature matrix expected to be a torch tensor.')
+        self.feat_edges = feat
 
     def set_amp(self, amp):
         if isinstance(amp, float):
