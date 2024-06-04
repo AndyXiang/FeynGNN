@@ -17,36 +17,30 @@ class GraphSet:
 
 
     def creator(self, size:int=10000,energy_range:tuple=(400,2000),angular_range:tuple=(1,2.5),random_energy=False,seed=None):
-        self.size = 4*size
-        ang = (angular_range[1]-angular_range[0])*np.random.random(size)+angular_range[0]
+        self.size = 2*size
+        ang = np.arange(start=angular_range[0],stop=angular_range[1],step=(angular_range[1]-angular_range[0])/size)
         if random_energy:
             np.random.seed(seed)
-            ECM = (energy_range[1]-energy_range[0])*np.random.random(size)+energy_range[0]
+            Ecm= (energy_range[1]-energy_range[0])*np.random.random(size)+energy_range[0]
         else:
-            ECM = np.arange(start=energy_range[0],stop=energy_range[1],step=(energy_range[1]-energy_range[0])/size)
+            Ecm = np.arange(start=energy_range[0],stop=energy_range[1],step=(energy_range[1]-energy_range[0])/size)
+        rd.shuffle(ang)
+        rd.shuffle(Ecm)
         for p in range(len(self.proc_list)):
             proc = getattr(pp, self.proc_list[p])
             for i in range(size):
-                graph = proc(ECM[i],1,'electron','muon',ang[i])
+                graph = proc(Ecm[i],1,'electron','muon',ang[i])
                 self.feat_nodes[p].append(graph.get_feat_nodes())
                 self.feat_edges[p].append(graph.get_feat_edges())
                 self.amp[p].append(graph.get_amp())
-                graph = proc(ECM[i],-1,'muon','electron',ang[i])
-                self.feat_nodes[p].append(graph.get_feat_nodes())
-                self.feat_edges[p].append(graph.get_feat_edges())
-                self.amp[p].append(graph.get_amp())
-                graph = proc(ECM[i],-1,'electron','muon',ang[i])
-                self.feat_nodes[p].append(graph.get_feat_nodes())
-                self.feat_edges[p].append(graph.get_feat_edges())
-                self.amp[p].append(graph.get_amp())
-                graph = proc(ECM[i],1,'muon','electron',ang[i])
+                graph = proc(Ecm[i],-1,'muon','electron',ang[i])
                 self.feat_nodes[p].append(graph.get_feat_nodes())
                 self.feat_edges[p].append(graph.get_feat_edges())
                 self.amp[p].append(graph.get_amp())
             l = len(self.feat_edges[p][0])
-            self.feat_nodes[p] = TensorShuffle(torch.cat(self.feat_nodes[p],dim=0).view(4*size,5,7))
-            self.feat_edges[p] = TensorShuffle(torch.cat(self.feat_edges[p],dim=0).view(4*size,l,2))
-            self.amp[p] =TensorShuffle(torch.tensor(self.amp[p],dtype=torch.float))
+            self.feat_nodes[p] = torch.cat(self.feat_nodes[p],dim=0).view(2*size,5,7)
+            self.feat_edges[p] = torch.cat(self.feat_edges[p],dim=0).view(2*size,l,2)
+            self.amp[p] = HardNormalize(torch.tensor(self.amp[p],dtype=torch.float))
 
     def saver(self, dir_root):
         for p in range(len(self.proc_list)):
@@ -68,8 +62,9 @@ class GraphSet:
             datadic['amp'] = self.amp[p]
             pd.DataFrame(datadic).to_csv(filename,index=False)
 
-    def spliter(self, ratio=(8,1,1)):
+    def spliter(self, ratio=(8,1,1),seed=100):
         train_gs, test_gs, validate_gs = GraphSet(self.proc_list),GraphSet(self.proc_list),GraphSet(self.proc_list)
+        torch.manual_seed(seed)
         rand_id = torch.randperm(self.size)
         p1 = int(ratio[0]/(ratio[0]+ratio[1]+ratio[2])*self.size)
         p2 = int((ratio[0]+ratio[1])/(ratio[0]+ratio[1]+ratio[2])*self.size)
@@ -132,8 +127,8 @@ def TensorShuffle(tensor, seed=100):
 
 if __name__ == '__main__':
     dr = "D:\\Python\\data\\"
-    gr = GraphSet(proc_list=["PairAnnihilation","ColumbScattering"])
-    gr.creator(size=3000,random_energy=True)
+    gr = GraphSet(proc_list=pp.Proc_List)
+    gr.creator(size=20000,random_energy=True,angular_range=(0.5,2))
     gr.saver(dir_root=dr)
 
 

@@ -15,15 +15,7 @@ Index_List = {
 }
 
 def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
-    if Ecm>mass[in_particle]:
-        if Ecm>mass[out_particle]:
-            pass 
-        else:
-            raise ValueError('PairAnnihilation: energy in center-of-mass frame shall be greater than the mass of incoming particle. The mass of incoming particle is '+str(mass[in_particle])+', and the energy is '+str(Ecm)+'.')
-    else:
-        raise ValueError('PairAnnihilation: energy in center-of-mass frame shall be greater than the mass of incoming particle. The mass of incoming particle is '+str(mass[in_particle])+', and the energy is '+str(Ecm)+'.')
     graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
-    adj = torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[-1,1],[1,1],[1,1],[1,1],[1,1],[-1,1]],dtype=torch.float
     )
@@ -35,8 +27,8 @@ def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     amp = 8/s**2 * (t**2+u**2+(mass['electron']**2+mass['muon']**2)*(2*s-mass['electron']**2-mass['muon']**2))
     node_feat = torch.tensor(
         [
-            [mass[in_particle], -1, 1/2, E_in, p_in, 0,1], 
-            [mass[in_particle], 1, 1/2, E_in, p_in, np.pi,1], 
+            [mass[in_particle], -1, 1/2, E_in, p_in, 0,-1], 
+            [mass[in_particle], 1, 1/2, E_in, p_in, np.pi,-1], 
             [mass['photon'], 0, 1, Ecm, 0, 0,0],
             [mass[out_particle], -1, 1/2, E_out, p_out, out_ang,1],
             [mass[out_particle], 1, 1/2, E_out, p_out, np.pi+out_ang,1]
@@ -50,12 +42,7 @@ def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
 
 
 def ColumbScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
-    if Ecm**2>mass['muon']**2-mass['electron']**2:
-        pass
-    else:
-        raise ValueError('ColumbScattering: energy in center-of-mass frame shall be greater than '+str((mass['muon']**2-mass['electron']**2)**0.5)+', but got '+str(Ecm)+'.')
     graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
-    torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[1,1],[-1,1],[1,1],[-1,1],[1,1],[-1,1]],dtype=torch.float
     )
@@ -67,11 +54,11 @@ def ColumbScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     amp = 1+be**2*bmu**2*cos(out_ang)**2+4*(mass['electron']**2+mass['muon']**2)/(Ecm**2)
     node_feat = torch.tensor(
             [
-                [mass['electron'], charge, 1/2, E_e, p, 0,1], 
-                [mass['muon'], charge, 1/2, E_mu, p, np.pi,1], 
+                [mass['electron'], charge, 1/2, E_e, p, 0,-1], 
+                [mass['muon'], charge, 1/2, E_mu, p, np.pi,-1], 
                 [mass['photon'], 0, 1, Ecm, 0, 0,0],
                 [mass['electron'], charge, 1/2, E_e, p, out_ang,1],
-                [mass['electron'], charge, 1/2, E_mu, p, np.pi+out_ang,1]
+                [mass['muon'], charge, 1/2, E_mu, p, np.pi+out_ang,1]
             ]
         ,dtype=torch.float)
     graph.set_feat_nodes(node_feat)
@@ -81,12 +68,7 @@ def ColumbScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     return graph
 
 def BhabhaScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
-    if Ecm>mass[in_particle]:
-        pass
-    else:
-        raise ValueError('BhabhaScattering: energy in center-of-mass frame shall be greater than mass of the incoming particle ('+str((mass['muon']**2-mass['electron']**2)**0.5)+'), but got '+str(Ecm)+'.')
     graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
-    adj = torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[-1,1],[1,2],[-1,1],[1,2],[-1,1],[1,2],[1,2],[-1,1]],dtype=torch.float
     )
@@ -99,8 +81,8 @@ def BhabhaScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     amp = 2*((s**2+u**2)/(t**2)+2*(u**2)/(s*t)+(u**2+t**2)/(s**2))
     node_feat = torch.tensor(
             [
-                [mass[in_particle], -1, 1/2, E_in, p_in, 0,1], 
-                [mass[in_particle], 1, 1/2, E_in, p_in, np.pi,1], 
+                [mass[in_particle], -1, 1/2, E_in, p_in, 0,-1], 
+                [mass[in_particle], 1, 1/2, E_in, p_in, np.pi,-1], 
                 [mass['photon'], 0, 1, Ecm, 0, 0,0],
                 [mass[in_particle], -1, 1/2, E_out, p_out, out_ang,1],
                 [mass[in_particle], 1, 1/2, E_out, p_out, np.pi+out_ang,1]
@@ -113,12 +95,7 @@ def BhabhaScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     return graph
 
 def MollerScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang):
-    if Ecm>mass[in_particle]:
-        pass
-    else:
-        raise ValueError('MøllerScattering: energy in center-of-mass frame shall be greater than mass of the incoming particle ('+str((mass['muon']**2-mass['electron']**2)**0.5)+'), but got '+str(Ecm)+'.')
     graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
-    adj = torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64)
     edge_feat = torch.tensor(
         [[1,2],[-1,1],[-1,1],[1,2],[-1,1],[-1,1],[1,2],[1,2]],dtype=torch.float
     )
@@ -131,8 +108,8 @@ def MollerScattering(Ecm,charge:int, in_particle:str, out_particle:str, out_ang)
     amp = 2/(t*u)*(s**2-8*mass[in_particle]**2*s+12*mass[in_particle]**4)
     node_feat = torch.tensor(
             [
-                [mass[in_particle], charge, 1/2, E_in, p_in, 0,1], 
-                [mass[in_particle], charge, 1/2, E_in, p_in, np.pi,1], 
+                [mass[in_particle], charge, 1/2, E_in, p_in, 0,-1], 
+                [mass[in_particle], charge, 1/2, E_in, p_in, np.pi,-1], 
                 [mass['photon'], 0, 1, Ecm, 0, 0,0],
                 [mass[in_particle], charge, 1/2, E_out, p_out, out_ang,1],
                 [mass[in_particle], charge, 1/2, E_out, p_out, np.pi+out_ang,1]
