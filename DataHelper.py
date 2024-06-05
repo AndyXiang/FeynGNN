@@ -126,7 +126,7 @@ def TensorShuffle(tensor, seed=100):
     return shuffled_tensor
 
 if __name__ == '__main__':
-    dr = "D:\\Python\\data\\"
+    dr = "D:\\Python\\FeynGNN\\data\\4proc_full_size=20000(random_energy,ang=(0.5,2))\\"
     gr = GraphSet(proc_list=pp.Proc_List)
     gr.creator(size=20000,random_energy=True,angular_range=(0.5,2))
     gr.saver(dir_root=dr)
