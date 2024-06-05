@@ -28,16 +28,17 @@ class HyperPara:
 
     def saveHyper(self,dr):
         hyperdict = {}
-        hyperdict["node_emb_dim"] = self.node_emb_dim
-        hyperdict["edge_emb_dim"] = self.edge_emb_dim
-        hyperdict["num_convs"] = self.num_convs
-        hyperdict["pool_dim"] = self.pool_dim
-        hyperdict["MLP_paras"] = self.MLP_paras
-        hyperdict["act_func"] = self.act_func
-        hyperdict["num_epoch"] =self.num_epoch
-        hyperdict["batch_size"] = self.batch_size
-        hyperdict["loss_func"] = self.loss_func
-        hyperdict["lr"] = self.lr
+        hyperdict["node_emb_dim"] = str(self.node_emb_dim)
+        hyperdict["edge_emb_dim"] = str(self.edge_emb_dim)
+        hyperdict["num_convs"] = str(self.num_convs)
+        hyperdict["pool_dim"] = str(self.pool_dim)
+        hyperdict["act_func"] = str(self.act_func)
+        hyperdict["num_epoch"] = str(self.num_epoch)
+        hyperdict["batch_size"] = str(self.batch_size)
+        hyperdict["loss_func"] = str(self.loss_func)
+        hyperdict["lr"] = str(self.lr)
+        for i in range(len(self.MLP_paras)):
+            hyperdict["MLP_params"+str(i)] = str(self.MLP_paras[i])
         df = pd.DataFrame(hyperdict)
         df.to_csv(dr+"HyperParameters.csv")
 
@@ -106,12 +107,12 @@ class GNNModel(nn.Module):
                     nn.Dropout(0.1),
                 )
             )
-        self.MLP.append(nn.AvgPool1d(hyperpara[-1][1]))
+        self.MLP.append(nn.AvgPool1d(hyperpara.MLP_paras[-1][1]))
 
         # Graph convolution layers
         self.convs = nn.ModuleList()
         for i in range(hyperpara.num_convs):
-            self.convs.append(MPLayer(node_feat_dim=node_emb_dim,edge_feat_dim=edge_emb_dim,aggr=hyperpara))
+            self.convs.append(MPLayer(node_feat_dim=hyperpara.node_emb_dim,edge_feat_dim=hyperpara.edge_emb_dim,aggr=hyperpara.aggr))
 
 
     def forward(self, node_feat, edge_feat,edge_index):
@@ -120,7 +121,8 @@ class GNNModel(nn.Module):
         for conv in self.convs:
             x = x + conv(x, edge_index, edge_attr=edge_attr)
         x = self.poolin(torch.cat([x[:,i,:] for i in range(5)],dim=-1))
-        x = self.bind(x)
+        for layer in self.MLP:
+            x = layer(x)
         return x
 
 
@@ -136,6 +138,7 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperpara:HyperPara,loss_l
         batch['edge_feat'][i] = torch.cat([trainset.feat_edges[i][hyperpara.batch_size*j:hyperpara.batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,hyperpara.batch_size,l,2)
         batch['amp'][i] = torch.cat([trainset.amp[i][hyperpara.batch_size*j:hyperpara.batch_size*(j+1)] for j in range(num_batch)],dim=0).view(num_batch,hyperpara.batch_size)
     model = GNNModel(hyperpara=hyperpara)
+    loss_func = hyperpara.loss_func
     if GPU:
         model.to('cuda')
         for i in range(len_proc):
@@ -152,7 +155,7 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperpara:HyperPara,loss_l
             order.append(i)
     model.train()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=1)
-    for epoch in range(num_epoch):
+    for epoch in range(hyperpara.num_epoch):
         lr_temp = hyperpara.lr[0]-(hyperpara.lr[0]-hyperpara.lr[1])*epoch/hyperpara.num_epoch
         for para in optimizer.param_groups:
             para['lr'] = lr_temp
@@ -161,7 +164,7 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperpara:HyperPara,loss_l
         for t in tqdm(range(len_proc*num_batch),desc='epoch: '+str(epoch+1)):
             proc = order[t]
             out = model(batch['node_feat'][proc][ite[proc]], batch['edge_feat'][proc][ite[proc]], edge_index_list[proc])
-            loss = loss_func(out.view(batch_size), batch['amp'][proc][ite[proc]])
+            loss = loss_func(out.view(hyperpara.batch_size), batch['amp'][proc][ite[proc]])
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -170,8 +173,10 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperpara:HyperPara,loss_l
         loss = []
         for t in range(len_proc):
             out = model(testset.feat_nodes[t], testset.feat_edges[t], edge_index_list[t])
-            loss.append(loss_func(out.view(len(out)), testset.amp[t]).item())
-        print(loss) 
+            out = out.view(len(out))
+            loss.append(loss_func(out, testset.amp[t]).item())
+            text = proc_list[t]+'mse loss: '+str(loss[t])
+            print(text)
         if loss < [loss_limit for _ in range(len_proc)]:
             break
     print("Model Training Completed.")
@@ -194,7 +199,7 @@ def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
         index = pp.Index_List[p]
         l = len(pp.Index_List[p][0])
         proc = getattr(pp, p)
-        for E in [300,800,1500,2000]: 
+        for E in [500,1000,1500,2000]: 
             amp_theo = torch.tensor([proc(E, 1, 'electron', 'muon', ang[i]).get_amp() for i in range(50)],dtype=torch.float)
             amp_theo = dh.HardNormalize(amp_theo)
             feat_nodes = torch.cat([proc(E, 1, 'electron', 'muon', ang[i]).get_feat_nodes() for i in range(50)],dim=0).view(50,5,7)
@@ -209,7 +214,7 @@ def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
 
 
 if __name__ == '__main__':
-    dr = "D:\\Python\\FeynGNN\\data\\"
+    dr = "D:\\Python\\FeynGNN\\data\\4proc_full_size=20000(random_energy,ang=(0.5,2))\\"
     gr = dh.GraphSet(proc_list=[])
     gr.reader(dir_root=dr)
     trainset, testset, valiset = gr.spliter()
@@ -221,12 +226,13 @@ if __name__ == '__main__':
         MLP_paras=[(512,1024),(1024,1024),(1024,1024),(1024,512),(512,32)],
         act_func=nn.LeakyReLU(inplace=True),
         num_epoch=20,
-        batch_size=20,
+        batch_size=40,
         loss_func=F.mse_loss,
         lr=(0.02,0.002),
         aggr='add'
     )
-    model = Training(trainset, testset,hyperparam,loss_limit=5e-5,GPU=True)
+    model = Training(trainset, testset,hyperparam,loss_limit=5e-6,GPU=True)
     Validating(model, valiset)
-    Figuring(model, proc_list=trainset.proc_list, dir_root="D:\\Python\\fig\\")
-    torch.save(model.state_dict(),'GNNMODEL(Train_size40000Batch_size40Num_epoch40Num_convs2Node_emb64Edge_emb4Mseloss_linpoolingMoreMLP).pt')
+    Figuring(model, proc_list=trainset.proc_list, dir_root="D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\validatingFIG\\")
+    torch.save(model.state_dict(),'D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\GNNmodel.pt')
+    hyperparam.saveHyper(dr="D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\")
