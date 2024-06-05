@@ -3,13 +3,19 @@ Graph neural network for understanding Feynman diagram
 
 # Project Design
 
-## Stage 1
+## Stage 1.0
 Reconstruct the existing code. The reconstruction shall contain three parts:
 1. Feynman graph class;
 2. data set up package, incluing data creator, saver and loader;
 3. model file, including model architecture, batchlizer of data and training program;
 4. training process file and validating, should be visualised.
-This stage shall be accomplished before 2024.8.31.
+This stage shall be accomplished before 2024.8.31.(**Accomplished**)
+
+## Stage 1.1
+1. Careful setup and describtion of datatset.
+2. Visualision and module of hyperparameters.
+3. Train with full dataset and find the highest performance.
+4. Train with masked dataset and test the generalization ability of the model.
 
 ## Stage 2
 Generalize the model to all 2->2 processes. Try different architecture, incluing different GCN layer, different pooling module. The baseline target is to achieve at least 0.95 RSquare rate on each process. 
