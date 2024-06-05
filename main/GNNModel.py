@@ -27,20 +27,9 @@ class HyperPara:
         self.aggr = aggr
 
     def saveHyper(self,dr):
-        hyperdict = {}
-        hyperdict["node_emb_dim"] = str(self.node_emb_dim)
-        hyperdict["edge_emb_dim"] = str(self.edge_emb_dim)
-        hyperdict["num_convs"] = str(self.num_convs)
-        hyperdict["pool_dim"] = str(self.pool_dim)
-        hyperdict["act_func"] = str(self.act_func)
-        hyperdict["num_epoch"] = str(self.num_epoch)
-        hyperdict["batch_size"] = str(self.batch_size)
-        hyperdict["loss_func"] = str(self.loss_func)
-        hyperdict["lr"] = str(self.lr)
-        for i in range(len(self.MLP_paras)):
-            hyperdict["MLP_params"+str(i)] = str(self.MLP_paras[i])
-        df = pd.DataFrame(hyperdict)
-        df.to_csv(dr+"HyperParameters.csv")
+        text = "node_emb_dim = "+ str(self.node_emb_dim)+'\n'+"edge_emb_dim = "+str(self.edge_emb_dim)+'\n'+"num_convs = "+ str(self.num_convs)+'\n'+"pool_dim = "+ str(self.pool_dim)+'\n'+"act_func = "+str(self.act_func)+'\n'+"num_epoch = "+str(self.num_epoch)+'\n'+"batch_size = "+str(self.batch_size)+'\n'+"loss_func = "+str(self.loss_func)+'\n'+"lr = "+str(self.lr)+'\n'
+        with open(dr+'hyperparams.txt','w') as f:
+            f.write(text)
 
 class MPLayer(MessagePassing):
     def __init__(self,node_feat_dim=16,edge_feat_dim=4 ,aggr='add'):
