@@ -2,9 +2,9 @@ import torch
 
 
 class FeynGraph():
-    def __init__(self,num_nodes,num_edges,amp):
-        self.num_nodes = num_nodes
-        self.num_edges = num_edges 
+    def __init__(self,num_edges,amp,num_nodes=5):
+        self.num_nodes = num_nodes # number of nodes, default:5
+        self.num_edges = num_edges # number of edges, 6 or 8
         #self.index_list = index_list 
         self.amp = amp 
         self.feat_nodes = []
@@ -40,7 +40,7 @@ class FeynGraph():
         #if isinstance(feat, torch.Tensor):
             #if feat.size() == torch.Size([self.num_edges,2]):
                 #if feat.dtype == torch.float:
-                   # self.feat_edges = feat
+                    # self.feat_edges = feat
                 #else:
                     #raise ValueError('Incorrect data type for edges` feature matrix, expected to be int64, but got '+str(feat.dtype)+'.')
             #else:

@@ -4,6 +4,7 @@ import numpy as np
 import torch 
 import pandas as pd
 import os 
+import glob
 import random as rd
 
 
@@ -89,10 +90,10 @@ class GraphSet:
     def reader(self,dir_root):
         proc_list = []
         file_list = []
-        for root, dirs, filenames in os.walk(dir_root):
-            for filename in filenames:
-                file_list.append(os.path.join(root, filename))
-                proc_list.append(os.path.join(root, filename).split('\\')[-1].split('_')[0])
+        csv_files = glob.glob(os.path.join(dir_root,'*.csv'))
+        for file in csv_files:
+            file_list.append(file)
+            proc_list.append(os.path.basename(file).split('\\')[-1].split('_')[0])
         feat_nodes = []
         feat_edges = []
         amp = []
