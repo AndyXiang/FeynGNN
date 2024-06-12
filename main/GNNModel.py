@@ -101,7 +101,7 @@ class GNNModel(nn.Module):
 
         # Multi-layer Percptron settings
         self.MLP = nn.ModuleList()
-        for t in hyperparam.MLP_paras:
+        for t in hyperparam.MLP_params:
             self.MLP.append(
                 nn.Sequential(
                     nn.Linear(t[0],t[1]),
@@ -169,7 +169,7 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperparam:HyperParams,los
             order.append(i)
     model.train()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=1)
-    for epoch in range(hyperpara.num_epoch):
+    for epoch in range(hyperparam.num_epoch):
         lr_temp = hyperparam.lr[0]-(hyperparam.lr[0]-hyperparam.lr[1])*epoch/hyperparam.num_epoch
         for para in optimizer.param_groups:
             para['lr'] = lr_temp
@@ -236,25 +236,25 @@ def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
 
 
 if __name__ == '__main__':
-    dr = "D:\\Python\\FeynGNN\\data\\4proc_full_size=20000(random_energy,ang=(0.5,2))\\"
+    dr = "/Users/andy/MainLand/Python/data/"
     gr = dh.GraphSet(proc_list=[])
     gr.reader(dir_root=dr)
     trainset, testset, valiset = gr.spliter()
-    hyperparam = HyperPara(
+    hyperparam = HyperParams(
         node_emb_dim=32,
         edge_emb_dim=4,
         num_convs=2,
         pool_dim=512,
-        MLP_paras=[(512,1024),(1024,1024),(1024,1024),(1024,512),(512,32)],
+        MLP_params=[(512,1024),(1024,1024),(1024,1024),(1024,512),(512,32)],
         act_func=nn.LeakyReLU(inplace=True),
-        num_epoch=20,
+        num_epoch=10,
         batch_size=40,
         loss_func=F.mse_loss,
         lr=(0.02,0.002),
         aggr='add'
     )
-    model = Training(trainset, testset,hyperparam,loss_limit=5e-6,GPU=True)
+    model = Training(trainset, testset,hyperparam,loss_limit=5e-6,GPU=False)
     Validating(model, valiset)
-    Figuring(model, proc_list=trainset.proc_list, dir_root="D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\validatingFIG\\")
-    torch.save(model.state_dict(),'D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\GNNmodel.pt')
-    hyperparam.saveHyper(dr="D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\")
+    Figuring(model, proc_list=trainset.proc_list, dir_root="/Users/andy/MainLand/Python/validatingFIG/")
+    #torch.save(model.state_dict(),'D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\GNNmodel.pt')
+    #hyperparam.saveHyper(dr="D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\")

@@ -44,7 +44,7 @@ class GraphSet:
             l = len(self.feat_edges[p][0])
             self.feat_nodes[p] = torch.cat(self.feat_nodes[p],dim=0).view(2*size,5,7)
             self.feat_edges[p] = torch.cat(self.feat_edges[p],dim=0).view(2*size,l,2)
-            self.amp[p] = HardNormalize(torch.tensor(self.amp[p],dtype=torch.float))
+            self.amp[p] = hard_normalize(torch.tensor(self.amp[p],dtype=torch.float))
 
     def saver(self, dir_root):
         for p in range(len(self.proc_list)):
@@ -125,7 +125,7 @@ def hard_normalize(vec):
 
 
 if __name__ == '__main__':
-    dr = "D:\\Python\\FeynGNN\\data\\4proc_full_size=20000(random_energy,ang=(0.5,2))\\"
+    dr = "/Users/andy/MainLand/Python/data/"
     gr = GraphSet(proc_list=pp.Proc_List)
     gr.creator(size=20000,random_energy=True,angular_range=(0.5,2))
     gr.saver(dir_root=dr)
