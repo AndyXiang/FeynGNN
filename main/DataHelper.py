@@ -125,9 +125,9 @@ def hard_normalize(vec):
 
 
 if __name__ == '__main__':
-    dr = "/Users/andy/MainLand/Python/data/"
+    dr = "D:\\Python\\FeynGNN\\data\\6proc_full(size=20000,ang=(0.5,2))\\"
     gr = GraphSet(proc_list=pp.Proc_List)
-    gr.creator(size=20000,random_energy=True,angular_range=(0.5,2))
+    gr.creator(size=20000,angular_range=(0.5,2.5))
     gr.saver(dir_root=dr)
 
 

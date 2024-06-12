@@ -236,7 +236,7 @@ def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
 
 
 if __name__ == '__main__':
-    dr = "/Users/andy/MainLand/Python/data/"
+    dr = "D:\\Python\\FeynGNN\\data\\6proc_full(size=20000;random_energy;ang=(0.5,2))\\"
     gr = dh.GraphSet(proc_list=[])
     gr.reader(dir_root=dr)
     trainset, testset, valiset = gr.spliter()
@@ -247,14 +247,14 @@ if __name__ == '__main__':
         pool_dim=512,
         MLP_params=[(512,1024),(1024,1024),(1024,1024),(1024,512),(512,32)],
         act_func=nn.LeakyReLU(inplace=True),
-        num_epoch=10,
-        batch_size=40,
+        num_epoch=40,
+        batch_size=80,
         loss_func=F.mse_loss,
         lr=(0.02,0.002),
         aggr='add'
     )
-    model = Training(trainset, testset,hyperparam,loss_limit=5e-6,GPU=False)
+    model = Training(trainset, testset,hyperparam,loss_limit=1e-7,GPU=True)
     Validating(model, valiset)
-    Figuring(model, proc_list=trainset.proc_list, dir_root="/Users/andy/MainLand/Python/validatingFIG/")
-    #torch.save(model.state_dict(),'D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\GNNmodel.pt')
-    #hyperparam.saveHyper(dr="D:\\Python\\FeynGNN\\model\\4proc_full_size=20000\\")
+    Figuring(model, proc_list=trainset.proc_list, dir_root="D:\\Python\\FeynGNN\\model\\6proc_full(size=20000)\\validatingFIG\\")
+    torch.save(model.state_dict(),'D:\\Python\\FeynGNN\\model\\6proc_full(size=20000)\\GNNmodel.pt')
+    hyperparam.save_hyper(dr="D:\\Python\\FeynGNN\\model\\6proc_full(size=20000)\\")
