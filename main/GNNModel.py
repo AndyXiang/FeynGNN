@@ -12,13 +12,17 @@ import DataHelper as dh
 import random as rd
 import pandas as pd
 
-class HyperPara:
-    def __init__(self,node_emb_dim:int, edge_emb_dim:int, num_convs:int, pool_dim:int, MLP_paras:list, act_func,num_epoch:int, batch_size:int, loss_func, lr:tuple, aggr:str):
+
+class HyperParams:
+    def __init__(
+        self,node_emb_dim:int, edge_emb_dim:int, num_convs:int, pool_dim:int, 
+        MLP_params:list, act_func,num_epoch:int, batch_size:int, loss_func, lr:tuple, aggr:str
+        ):
         self.node_emb_dim = node_emb_dim
         self.edge_emb_dim = edge_emb_dim
         self.num_convs = num_convs
         self.pool_dim = pool_dim
-        self.MLP_paras = MLP_paras
+        self.MLP_params = MLP_params
         self.act_func = act_func
         self.num_epoch = num_epoch
         self.batch_size = batch_size
@@ -26,8 +30,17 @@ class HyperPara:
         self.lr = lr
         self.aggr = aggr
 
-    def saveHyper(self,dr):
-        text = "node_emb_dim = "+ str(self.node_emb_dim)+'\n'+"edge_emb_dim = "+str(self.edge_emb_dim)+'\n'+"num_convs = "+ str(self.num_convs)+'\n'+"pool_dim = "+ str(self.pool_dim)+'\n'+"act_func = "+str(self.act_func)+'\n'+"num_epoch = "+str(self.num_epoch)+'\n'+"batch_size = "+str(self.batch_size)+'\n'+"loss_func = "+str(self.loss_func)+'\n'+"lr = "+str(self.lr)+'\n'
+    def save_hyper(self,dr):
+        text = ("node_emb_dim = "+ str(self.node_emb_dim)+'\n'
+            +"edge_emb_dim = "+str(self.edge_emb_dim)+'\n'
+            +"num_convs = "+ str(self.num_convs)+'\n'
+            +"pool_dim = "+ str(self.pool_dim)+'\n'
+            +"act_func = "+str(self.act_func)+'\n'
+            +"num_epoch = "+str(self.num_epoch)+'\n'
+            +"batch_size = "+str(self.batch_size)+'\n'
+            +"loss_func = "+str(self.loss_func)+'\n'
+            +"lr = "+str(self.lr)+'\n'
+        )
         with open(dr+'hyperparams.txt','w') as f:
             f.write(text)
 
@@ -54,6 +67,7 @@ class MPLayer(MessagePassing):
             nn.BatchNorm1d(5),
             nn.LeakyReLU(inplace=True),
         )
+
     def forward(self, h, edge_index, edge_attr):
         out = self.propagate(edge_index, h=h, edge_attr=edge_attr)
         return out
@@ -70,24 +84,24 @@ class MPLayer(MessagePassing):
         return self.upd(upd)
 
 class GNNModel(nn.Module):
-    def __init__(self,  hyperpara:HyperPara,node_feat_dim=7, edge_feat_dim=2):
+    def __init__(self,  hyperparam:HyperParams,node_feat_dim=7, edge_feat_dim=2):
         super().__init__()
-        self.act_func = hyperpara.act_func
+        self.act_func = hyperparam.act_func
         # Linear embbeding of node features and edge features
-        self.node_emb = nn.Linear(node_feat_dim, hyperpara.node_emb_dim)
-        self.edge_emb = nn.Linear(edge_feat_dim, hyperpara.edge_emb_dim)
+        self.node_emb = nn.Linear(node_feat_dim, hyperparam.node_emb_dim)
+        self.edge_emb = nn.Linear(edge_feat_dim, hyperparam.edge_emb_dim)
         
         # Linear pooling of graph
         self.poolin =  nn.Sequential(
-            nn.Linear(5*hyperpara.node_emb_dim, hyperpara.pool_dim),
-            nn.BatchNorm1d(hyperpara.pool_dim),
+            nn.Linear(5*hyperparam.node_emb_dim, hyperparam.pool_dim),
+            nn.BatchNorm1d(hyperparam.pool_dim),
             self.act_func,
             nn.Dropout(0.1),
         )
 
         # Multi-layer Percptron settings
         self.MLP = nn.ModuleList()
-        for t in hyperpara.MLP_paras:
+        for t in hyperparam.MLP_paras:
             self.MLP.append(
                 nn.Sequential(
                     nn.Linear(t[0],t[1]),
@@ -96,13 +110,14 @@ class GNNModel(nn.Module):
                     nn.Dropout(0.1),
                 )
             )
-        self.MLP.append(nn.AvgPool1d(hyperpara.MLP_paras[-1][1]))
+        self.MLP.append(nn.AvgPool1d(hyperparam.MLP_params[-1][1]))
 
         # Graph convolution layers
         self.convs = nn.ModuleList()
-        for i in range(hyperpara.num_convs):
-            self.convs.append(MPLayer(node_feat_dim=hyperpara.node_emb_dim,edge_feat_dim=hyperpara.edge_emb_dim,aggr=hyperpara.aggr))
-
+        for i in range(hyperparam.num_convs):
+            self.convs.append(MPLayer(
+                node_feat_dim=hyperparam.node_emb_dim,edge_feat_dim=hyperparam.edge_emb_dim,aggr=hyperparam.aggr
+                ))
 
     def forward(self, node_feat, edge_feat,edge_index):
         x = self.node_emb(node_feat)
@@ -115,19 +130,29 @@ class GNNModel(nn.Module):
         return x
 
 
-def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperpara:HyperPara,loss_limit=0.01,GPU=False):
+def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperparam:HyperParams,loss_limit=0.01,GPU=False):
     len_proc = len(trainset.proc_list)
     proc_list = trainset.proc_list
     edge_index_list = [pp.Index_List[proc] for proc in proc_list]
-    batch = {'node_feat': [None for i in range(len_proc)], 'edge_feat': [None for i in range(len_proc)],'amp': [None for i in range(len_proc)] }
-    num_batch = int(trainset.size/hyperpara.batch_size)
+    batch = {
+        'node_feat': [None for i in range(len_proc)], 
+        'edge_feat': [None for i in range(len_proc)],
+        'amp': [None for i in range(len_proc)] 
+    }
+    num_batch = int(trainset.size/hyperparam.batch_size)
     for i in range(len_proc):
         l = len(trainset.feat_edges[i][0])
-        batch['node_feat'][i] = torch.cat([trainset.feat_nodes[i][hyperpara.batch_size*j:hyperpara.batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,hyperpara.batch_size,5,7)
-        batch['edge_feat'][i] = torch.cat([trainset.feat_edges[i][hyperpara.batch_size*j:hyperpara.batch_size*(j+1),:,:] for j in range(num_batch)],dim=0).view(num_batch,hyperpara.batch_size,l,2)
-        batch['amp'][i] = torch.cat([trainset.amp[i][hyperpara.batch_size*j:hyperpara.batch_size*(j+1)] for j in range(num_batch)],dim=0).view(num_batch,hyperpara.batch_size)
-    model = GNNModel(hyperpara=hyperpara)
-    loss_func = hyperpara.loss_func
+        batch['node_feat'][i] = torch.cat(
+            [trainset.feat_nodes[i][hyperparam.batch_size*j:hyperparam.batch_size*(j+1),:,:] for j in range(num_batch)],dim=0
+            ).view(num_batch,hyperparam.batch_size,5,7)
+        batch['edge_feat'][i] = torch.cat(
+            [trainset.feat_edges[i][hyperparam.batch_size*j:hyperparam.batch_size*(j+1),:,:] for j in range(num_batch)],dim=0
+            ).view(num_batch,hyperparam.batch_size,l,2)
+        batch['amp'][i] = torch.cat(
+            [trainset.amp[i][hyperparam.batch_size*j:hyperparam.batch_size*(j+1)] for j in range(num_batch)],dim=0
+            ).view(num_batch,hyperparam.batch_size)
+    model = GNNModel(hyperparam=hyperparam)
+    loss_func = hyperparam.loss_func
     if GPU:
         model.to('cuda')
         for i in range(len_proc):
@@ -145,15 +170,17 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperpara:HyperPara,loss_l
     model.train()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=1)
     for epoch in range(hyperpara.num_epoch):
-        lr_temp = hyperpara.lr[0]-(hyperpara.lr[0]-hyperpara.lr[1])*epoch/hyperpara.num_epoch
+        lr_temp = hyperparam.lr[0]-(hyperparam.lr[0]-hyperparam.lr[1])*epoch/hyperparam.num_epoch
         for para in optimizer.param_groups:
             para['lr'] = lr_temp
         rd.shuffle(order)
         ite = [0 for _ in range(len_proc)]
         for t in tqdm(range(len_proc*num_batch),desc='epoch: '+str(epoch+1)):
             proc = order[t]
-            out = model(batch['node_feat'][proc][ite[proc]], batch['edge_feat'][proc][ite[proc]], edge_index_list[proc])
-            loss = loss_func(out.view(hyperpara.batch_size), batch['amp'][proc][ite[proc]])
+            out = model(
+                batch['node_feat'][proc][ite[proc]], batch['edge_feat'][proc][ite[proc]], edge_index_list[proc]
+            )
+            loss = loss_func(out.view(hyperparam.batch_size), batch['amp'][proc][ite[proc]])
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -189,10 +216,16 @@ def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
         l = len(pp.Index_List[p][0])
         proc = getattr(pp, p)
         for E in [500,1000,1500,2000]: 
-            amp_theo = torch.tensor([proc(E, 1, 'electron', 'muon', ang[i]).get_amp() for i in range(50)],dtype=torch.float)
-            amp_theo = dh.HardNormalize(amp_theo)
-            feat_nodes = torch.cat([proc(E, 1, 'electron', 'muon', ang[i]).get_feat_nodes() for i in range(50)],dim=0).view(50,5,7)
-            feat_edges = torch.cat([proc(E, 1, 'electron', 'muon', ang[i]).get_feat_edges() for i in range(50)],dim=0).view(50,l,2)
+            amp_theo = torch.tensor(
+                [proc(E, 1, 'electron', 'muon', ang[i]).get_amp() for i in range(50)],dtype=torch.float
+            )
+            amp_theo = dh.hard_normalize(amp_theo)
+            feat_nodes = torch.cat(
+                [proc(E, 1, 'electron', 'muon', ang[i]).get_feat_nodes() for i in range(50)],dim=0
+            ).view(50,5,7)
+            feat_edges = torch.cat(
+                [proc(E, 1, 'electron', 'muon', ang[i]).get_feat_edges() for i in range(50)],dim=0
+            ).view(50,l,2)
             model.eval()
             amp_pred = model(feat_nodes, feat_edges, index).view(50).tolist()
             plt.scatter(ang, amp_theo, label='Thepratical Calculation',s=10)

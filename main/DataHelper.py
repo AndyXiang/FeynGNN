@@ -17,7 +17,10 @@ class GraphSet:
         self.size = 0
 
 
-    def creator(self, size:int=10000,energy_range:tuple=(400,2000),angular_range:tuple=(1,2.5),random_energy=False,seed=None):
+    def creator(
+            self, size:int=10000,energy_range:tuple=(400,2000),
+            angular_range:tuple=(1,2.5),random_energy=False,seed=None
+        ):
         self.size = 2*size
         ang = np.arange(start=angular_range[0],stop=angular_range[1],step=(angular_range[1]-angular_range[0])/size)
         if random_energy:
@@ -110,21 +113,16 @@ class GraphSet:
                 subset = df.iloc[:,35+2*j:37+2*j]
                 temp.append(torch.tensor(subset.values,dtype=torch.int64).view(size,1,2))
             feat_edges.append(torch.cat(temp,dim=1).float())
-            amp.append(HardNormalize(torch.tensor(df.iloc[:,-1].values,dtype=torch.float)))
+            amp.append(hard_normalize(torch.tensor(df.iloc[:,-1].values,dtype=torch.float)))
         self.proc_list = proc_list
         self.amp = amp 
         self.feat_edges = feat_edges
         self.feat_nodes = feat_nodes
         self.size = len(amp[0])
 
-def HardNormalize(vec):
+def hard_normalize(vec):
     return (vec - min(vec)) / (max(vec) - min(vec))
 
-def TensorShuffle(tensor, seed=100):
-    torch.manual_seed(seed)
-    index = torch.randperm(tensor.size(0))
-    shuffled_tensor = tensor[index]
-    return shuffled_tensor
 
 if __name__ == '__main__':
     dr = "D:\\Python\\FeynGNN\\data\\4proc_full_size=20000(random_energy,ang=(0.5,2))\\"
