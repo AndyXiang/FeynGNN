@@ -8,19 +8,22 @@ mass = {'electron': 0.51099895, 'muon':105.6583775, 'photon':0}
 Proc_List = ['PairAnnihilation','ColumbScattering','BhabhaScattering','MollerScattering','ComptonScattering','PhotonCreation']
 
 Index_List = {
-    'PairAnnihilation': torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64),
-    'BhabhaScattering': torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64),
-    'MollerScattering': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64),
-    'ColumbScattering': torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64),
-    'ComptonScattering':torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,3,3,4,4]],dtype=torch.int64),
-    'PhotonCreation': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64)
+    #'PairAnnihilation': torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64),
+    'PairAnnihilation': torch.tensor([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]],dtype=torch.int64),
+    #'BhabhaScattering': torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64),
+    'BhabhaScattering': torch.tensor([[1,1,1,1,0],[1,1,1,0,1],[1,1,1,1,1],[1,0,1,1,1],[0,1,1,1,1]],dtype=torch.int64),
+    #'MollerScattering': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64),
+    'MollerScattering': torch.tensor([[1,0,1,1,1],[0,1,1,1,1],[1,1,1,1,1],[1,1,1,1,0],[1,1,1,0,1]],dtype=torch.int64),
+    #'ColumbScattering': torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64),
+    'ColumbScattering': torch.tensor([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]],dtype=torch.int64),
+    #'ComptonScattering':torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,3,3,4,4]],dtype=torch.int64),
+    'ComptonScattering':torch.tensor([[1,1,1,1,0],[1,1,1,1,0],[1,1,1,1,1],[0,1,1,1,1],[0,1,1,1,1]],dtype=torch.int64),
+    #'PhotonCreation': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64)
+    'PhotonCreation': torch.tensor([[1,0,1,1,1],[0,1,1,1,1],[1,1,1,1,1],[1,1,1,1,0],[1,1,1,0,1]],dtype=torch.int64)
 }
 
 def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, ang):
     graph = FeynGraph(num_nodes=5, num_edges=6, amp=0)
-    edge_feat = torch.tensor(
-        [[-1,1],[1,1],[1,1],[1,1],[1,1],[-1,1]],dtype=torch.float
-    )
     E_in, E_out = Ecm/2, Ecm/2
     p_in, p_out = (E_in**2 - mass[in_particle]**2)**0.5, (E_out**2 - mass[out_particle]**2)**0.5
     s = Ecm**2
@@ -37,7 +40,6 @@ def PairAnnihilation(Ecm,charge:int, in_particle:str, out_particle:str, ang):
         ]
         ,dtype=torch.float)
     graph.set_feat_nodes(node_feat)
-    graph.set_feat_edges(edge_feat)
     graph.set_amp(amp)
     #graph.set_adj()
     return graph
