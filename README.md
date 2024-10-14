@@ -3,11 +3,13 @@ Graph neural network for understanding and calculation of Feynman diagram.
 
 # Release 1.0
 ## 1.0
-The directory **main** contains the four python files of the FeynGNN. The FeynGraph.py defines the class that save the features of each input graph. PhysicsProcess.py contains four functions that create the graph and compute the amplitudes of chosen scattering process, including:
-1. Pair annihilation: $e^+e^-\to \mu^+\mu^-,\mu^+\mu^-\to e^+e^-$.
+The directory **main** contains the four python files of the FeynGNN.  PhysicsProcess.py contains four functions that create the graph and compute the amplitudes of chosen scattering process, including:
+1. Pair annihilation: $\mu^+\mu^-\to e^+e^-$.
 2. Columb scattering: $e^+\mu^+\to e^+\mu^+,e^-\mu^-\to e^-\mu^-$.
 3. Bhabha scattering: $e^+ e^-\to e^+ e^-,\mu^+\mu^-\to \mu^+\mu^-$.
 4. Moller scattering: $e^+e^+\to e^+ e^+,\mu^-\mu^-\to \mu^-\mu^-$.
+5. Compton scattering: $e^\pm \gamma\to e^\pm \gamma, \mu^\pm\gamma\to \mu^\pm\gamma$.
+6. Photon creation: $e^\pm e^\mp\to 2\gamma, \mu^\pm \mu^\mp\to 2\gamma$
 
 The DataHelper.py contains the graphset class and can create, save, and load graph datasets. The GNNModel.py define the graph neural network model and the input of hyperparameters.
 

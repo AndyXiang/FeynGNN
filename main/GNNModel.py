@@ -1,5 +1,5 @@
 import numpy as np 
-import torch 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F 
 from torch_scatter import scatter
@@ -8,7 +8,7 @@ from torchmetrics import R2Score
 from tqdm import tqdm 
 import matplotlib.pyplot as plt
 import PhysicsProcess as pp
-import DataHelper as dh
+import DataHelper as dh #data
 import random as rd
 import pandas as pd
 
@@ -75,7 +75,7 @@ class GNNModel(nn.Module):
         
         # Linear pooling of graph
         self.poolin =  nn.Sequential(
-            nn.Linear(5*hyperparam.node_emb_dim, hyperparam.pool_dim),
+            nn.Linear(hyperparam.node_emb_dim, hyperparam.pool_dim),
             nn.BatchNorm1d(hyperparam.pool_dim),
             self.act_func,
             nn.Dropout(0.1),
@@ -102,40 +102,91 @@ class GNNModel(nn.Module):
     def forward(self, x, edge_index):
         for conv in self.convs:
             x = conv(x, edge_index)
-        x = self.poolin(x.flatten(start_dim=1))
+        x = self.poolin(torch.sum(x, dim=1))
         for layer in self.MLP:
             x = layer(x)
         return x
 
 
-def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperparam:HyperParams,loss_limit=0.01,GPU=False):
-    len_proc = len(trainset.proc_list)
-    proc_list = trainset.proc_list
-    edge_index_list = [pp.Index_List[proc] for proc in proc_list]
-    batch = {
-        'node_feat': [None for i in range(len_proc)], 
-        'edge_feat': [None for i in range(len_proc)],
-        'amp': [None for i in range(len_proc)] 
+def Training(size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000):
+    len_proc = 3
+    proc_list = pp.PROC_LIST
+    trainset = {
+        'PairAnnihilation':{'nodes_feat':[], 'adj':[], 'amp':[]},
+        'CoulombScattering':{'nodes_feat':[], 'adj':[], 'amp':[]},
+        'ComptonScattering':{'nodes_feat':[], 'adj':[], 'amp':[]}
     }
-    num_batch = int(trainset.size/hyperparam.batch_size)
+    for t in range(3):
+        proc = getattr(pp, proc_list[t])
+        for i in range(size):
+            adj, node_feat, amp = proc('electron', 1, seed=seed)
+            trainset[proc_list[t]]['adj'].append(adj)
+            trainset[proc_list[t]]['nodes_feat'].append(node_feat)
+            trainset[proc_list[t]]['amp'].append(amp)
+            adj, node_feat, amp = proc('electron', -1, seed=seed)
+            trainset[proc_list[t]]['adj'].append(adj)
+            trainset[proc_list[t]]['nodes_feat'].append(node_feat)
+            trainset[proc_list[t]]['amp'].append(amp)
+            adj, node_feat, amp = proc('muon', 1, seed=seed)
+            trainset[proc_list[t]]['adj'].append(adj)
+            trainset[proc_list[t]]['nodes_feat'].append(node_feat)
+            trainset[proc_list[t]]['amp'].append(amp)
+            adj, node_feat, amp = proc('muon', -1, seed=seed)
+            trainset[proc_list[t]]['adj'].append(adj)
+            trainset[proc_list[t]]['nodes_feat'].append(node_feat)
+            trainset[proc_list[t]]['amp'].append(amp)
+        trainset[proc_list[t]]['adj'] = torch.tensor(np.array(trainset[proc_list[t]]['adj']), dtype=torch.float32)
+        trainset[proc_list[t]]['nodes_feat'] = torch.tensor(np.array(trainset[proc_list[t]]['nodes_feat']), dtype=torch.float32)
+        trainset[proc_list[t]]['amp'] = torch.tensor(np.array(trainset[proc_list[t]]['amp']), dtype=torch.float32)
+
+    testset = {
+        'PairAnnihilation':{'nodes_feat':[], 'adj':[], 'amp':[]},
+        'CoulombScattering':{'nodes_feat':[], 'adj':[], 'amp':[]},
+        'ComptonScattering':{'nodes_feat':[], 'adj':[], 'amp':[]}
+    }
+    for t in range(3):
+        proc = getattr(pp, proc_list[t])
+        for i in range(100):
+            adj, node_feat, amp = proc('electron', 1, seed=seed)
+            testset[proc_list[t]]['adj'].append(adj)
+            testset[proc_list[t]]['nodes_feat'].append(node_feat)
+            testset[proc_list[t]]['amp'].append(amp)
+            adj, node_feat, amp = proc('electron', -1, seed=seed)
+            testset[proc_list[t]]['adj'].append(adj)
+            testset[proc_list[t]]['nodes_feat'].append(node_feat)
+            testset[proc_list[t]]['amp'].append(amp)
+            adj, node_feat, amp = proc('muon', 1, seed=seed)
+            testset[proc_list[t]]['adj'].append(adj)
+            testset[proc_list[t]]['nodes_feat'].append(node_feat)
+            testset[proc_list[t]]['amp'].append(amp)
+            adj, node_feat, amp = proc('muon', -1, seed=seed)
+            testset[proc_list[t]]['adj'].append(adj)
+            testset[proc_list[t]]['nodes_feat'].append(node_feat)
+            testset[proc_list[t]]['amp'].append(amp)
+        testset[proc_list[t]]['adj'] = torch.tensor(np.array(testset[proc_list[t]]['adj']), dtype=torch.float32)
+        testset[proc_list[t]]['nodes_feat'] = torch.tensor(np.array(testset[proc_list[t]]['nodes_feat']), dtype=torch.float32)
+        testset[proc_list[t]]['amp'] = torch.tensor(np.array(testset[proc_list[t]]['amp']), dtype=torch.float32)
+
+    num_batch = int(4*size/hyperparam.batch_size)
+    batch = {'nodes_feat':[None for i in range(len_proc)], 'adj':[None for i in range(len_proc)], 'amp':[None for i in range(len_proc)]}
     for i in range(len_proc):
-        l = len(trainset.feat_edges[i][0])
-        batch['node_feat'][i] = torch.cat(
-            [trainset.feat_nodes[i][hyperparam.batch_size*j:hyperparam.batch_size*(j+1),:,:] for j in range(num_batch)],dim=0
-            ).view(num_batch,hyperparam.batch_size,5,7)
+        batch['nodes_feat'][i] = torch.cat(
+            [trainset[proc_list[i]]['nodes_feat'][hyperparam.batch_size*j:hyperparam.batch_size*(j+1),:,:].unsqueeze(0) for j in range(num_batch)]
+        ,dim=0)
+        batch['adj'][i] = torch.cat(
+            [trainset[proc_list[i]]['adj'][hyperparam.batch_size*j:hyperparam.batch_size*(j+1),:,:].unsqueeze(0) for j in range(num_batch)]
+        ,dim=0)
         batch['amp'][i] = torch.cat(
-            [trainset.amp[i][hyperparam.batch_size*j:hyperparam.batch_size*(j+1)] for j in range(num_batch)],dim=0
-            ).view(num_batch,hyperparam.batch_size)
+            [trainset[proc_list[i]]['amp'][hyperparam.batch_size*j:hyperparam.batch_size*(j+1)].unsqueeze(0) for j in range(num_batch)]
+        ,dim=0)
     model = GNNModel(hyperparam=hyperparam)
     loss_func = hyperparam.loss_func
     if GPU:
         model.to('cuda')
         for i in range(len_proc):
-            batch['node_feat'][i] = batch['node_feat'][i].to('cuda')
+            batch['nodes_feat'][i] = batch['nodes_feat'][i].to('cuda')
+            batch['adj'][i] = batch['adj'][i].to('cuda')
             batch['amp'][i] = batch['amp'][i].to('cuda')
-            testset.feat_nodes[i] = testset.feat_nodes[i].to('cuda')
-            testset.amp[i] = testset.amp[i].to('cuda')
-            edge_index_list[i]=edge_index_list[i].to('cuda')
     order = []
     for i in range(len_proc):
         for _ in range(num_batch):
@@ -148,10 +199,10 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperparam:HyperParams,los
             para['lr'] = lr_temp
         rd.shuffle(order)
         ite = [0 for _ in range(len_proc)]
-        for t in tqdm(range(len_proc*num_batch),desc='epoch: '+str(epoch+1)):
+        for t in tqdm(range(len_proc*num_batch) ,desc='epoch: '+str(epoch+1)):
             proc = order[t]
             out = model(
-                batch['node_feat'][proc][ite[proc]],  edge_index_list[proc]
+                batch['nodes_feat'][proc][ite[proc]],  batch['adj'][proc][ite[proc]]
             )
             loss = loss_func(out.view(hyperparam.batch_size), batch['amp'][proc][ite[proc]])
             optimizer.zero_grad()
@@ -161,10 +212,10 @@ def Training(trainset:dh.GraphSet,testset:dh.GraphSet,hyperparam:HyperParams,los
         model.eval()
         loss = []
         for t in range(len_proc):
-            out = model(testset.feat_nodes[t], edge_index_list[t])
+            out = model(testset[proc_list[t]]['nodes_feat'], testset[proc_list[t]]['adj'])
             out = out.view(len(out))
-            loss.append(loss_func(out, testset.amp[t]).item())
-            text = proc_list[t]+'mse loss: '+str(loss[t])
+            loss.append(loss_func(out, testset[proc_list[t]]['amp']).item())
+            text = proc_list[t]+' mse loss: '+str(loss[t])
             print(text)
         if loss < [loss_limit for _ in range(len_proc)]:
             break
@@ -206,10 +257,6 @@ def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
 
 
 if __name__ == '__main__':
-    dr = "/Users/andy/MainLand/Python/FeynGNN/data/6proc_full(size=20000;random_energy;ang=(0.5,2))/"
-    gr = dh.GraphSet(proc_list=[])
-    gr.reader(dir_root=dr)
-    trainset, testset, valiset = gr.spliter()
     hyperparam = HyperParams(
         node_emb_dim=32,
         num_convs=2,
@@ -221,8 +268,6 @@ if __name__ == '__main__':
         loss_func=F.mse_loss,
         lr=(0.02,0.002),
     )
-    model = Training(trainset, testset,hyperparam,loss_limit=1e-7,GPU=False)
-    Validating(model, valiset)
-    Figuring(model, proc_list=trainset.proc_list, dir_root="/Users/andy/MainLand/Python/FeynGNN/model/test/")
+    model = Training(10000,hyperparam,loss_limit=1e-7,GPU=False)
     torch.save(model.state_dict(),'/Users/andy/MainLand/Python/FeynGNN/model/test/GNNmodel.pt')
     hyperparam.save_hyper(dr="/Users/andy/MainLand/Python/FeynGNN/model/test/")
