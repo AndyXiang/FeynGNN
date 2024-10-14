@@ -52,7 +52,6 @@ class GATLayer(nn.Module):
 
         self.Q = nn.Linear(2*temp, 1)
 
-
     def forward(self, h, adj):
         temp = []
         for i in range(self.heads):
@@ -109,6 +108,7 @@ class GNNModel(nn.Module):
 
 
 def Training(size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000):
+    r2 = R2Score()
     len_proc = 3
     proc_list = pp.PROC_LIST
     trainset = {
@@ -146,7 +146,7 @@ def Training(size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000
     }
     for t in range(3):
         proc = getattr(pp, proc_list[t])
-        for i in range(100):
+        for i in range(20):
             adj, node_feat, amp = proc('electron', 1, seed=seed)
             testset[proc_list[t]]['adj'].append(adj)
             testset[proc_list[t]]['nodes_feat'].append(node_feat)
@@ -187,6 +187,9 @@ def Training(size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000
             batch['nodes_feat'][i] = batch['nodes_feat'][i].to('cuda')
             batch['adj'][i] = batch['adj'][i].to('cuda')
             batch['amp'][i] = batch['amp'][i].to('cuda')
+            testset[proc_list[i]]['nodes_feat'] = testset[proc_list[i]]['nodes_feat'].to('cuda')
+            testset[proc_list[i]]['adj'] = testset[proc_list[i]]['adj'].to('cuda')
+            testset[proc_list[i]]['amp'] = testset[proc_list[i]]['amp'].to('cuda')
     order = []
     for i in range(len_proc):
         for _ in range(num_batch):
@@ -217,57 +220,50 @@ def Training(size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000
             loss.append(loss_func(out, testset[proc_list[t]]['amp']).item())
             text = proc_list[t]+' mse loss: '+str(loss[t])
             print(text)
-        if loss < [loss_limit for _ in range(len_proc)]:
+        if sum(loss) < len_proc*loss_limit:
             break
     print("Model Training Completed.")
+    for i in range(len_proc):
+        pred = model(testset[proc_list[i]]['nodes_feat'], testset[proc_list[i]]['adj']).view(80)
+        text = proc_list[i] + ' RSquare: ' + str(r2(pred, testset[proc_list[i]]['amp']).item())
+        print(text)
     return model
 
-def Validating(model, valiset):
-    r2 = R2Score()
-    model.to('cpu')
-    len_proc = len(valiset.proc_list)
-    proc_list = valiset.proc_list
-    model.eval()
-    for i in range(len_proc):
-        pred = model(valiset.feat_nodes[i],  pp.Index_List[proc_list[i]]).view(valiset.size)
-        text = proc_list[i] + ' RSquare: '+str(r2(pred, valiset.amp[i]).item())
-        print(text)
-
-def Figuring(model, proc_list,dir_root,angular_range=(0.5,2)):
-    ang = [angular_range[0]+i*(angular_range[1]-angular_range[0])/50 for i in range(50)]
-    for p in proc_list:
-        index = pp.Index_List[p]
-        l = len(pp.Index_List[p][0])
+def Figuring(model,  dir_root, seed=1000):
+    for p in pp.PROC_LIST:
+        if p == 'ComptonScattering':
+            t = 10
+        else:
+            t = 5
         proc = getattr(pp, p)
-        for E in [500,1000,1500,2000]: 
-            amp_theo = torch.tensor(
-                [proc(E, 1, 'electron', 'muon', ang[i]).get_amp() for i in range(50)],dtype=torch.float
-            )
-            amp_theo = dh.hard_normalize(amp_theo)
-            feat_nodes = torch.cat(
-                [proc(E, 1, 'electron', 'muon', ang[i]).get_feat_nodes() for i in range(50)],dim=0
-            ).view(50,5,7)
+        amp_theo = []
+        amp_pred = []
+        for i in range(50):
+            adj, nodes_feat, amp = proc('muon', 1)
+            amp_theo.append(amp)
             model.eval()
-            amp_pred = model(feat_nodes, index).view(50).tolist()
-            plt.scatter(ang, amp_theo, label='Thepratical Calculation',s=10)
-            plt.scatter(ang, amp_pred, label='Model Predictions',s=10)
-            plt.legend()
-            plt.savefig(dir_root+str(p)+'_'+str(E)+'.png')
-            plt.close()
+            amp_pred.append( model(torch.tensor(nodes_feat, dtype=torch.float32).view(1, t, 7), torch.tensor(adj,dtype=torch.float32).view(1, t, t)).item())
+        x = [i for i in range(50)]
+        plt.scatter(x, amp_theo, label='Theoretical Calculation',s=10)
+        plt.scatter(x, amp_pred, label='Model Predictions',s=10)
+        plt.legend()
+        plt.savefig(dir_root+str(p)+'.png')
+        plt.close()
 
 
 if __name__ == '__main__':
     hyperparam = HyperParams(
         node_emb_dim=32,
         num_convs=2,
-        pool_dim=512,
-        MLP_params=[(512,1024),(1024,1024),(1024,1024),(1024,512),(512,32)],
+        pool_dim=256,
+        MLP_params=[(256,512),(512,256),(256,32)],
         act_func=nn.LeakyReLU(inplace=True),
         num_epoch=40,
-        batch_size=80,
-        loss_func=F.mse_loss,
-        lr=(0.02,0.002),
+        batch_size=100,
+        loss_func=F.huber_loss,
+        lr=(0.05,0.01),
     )
-    model = Training(10000,hyperparam,loss_limit=1e-7,GPU=False)
+    model = Training(2500,hyperparam,loss_limit=0.1,GPU=False)
+    Figuring(model, '/Users/andy/MainLand/Python/FeynGNN/model/test/fig/')
     torch.save(model.state_dict(),'/Users/andy/MainLand/Python/FeynGNN/model/test/GNNmodel.pt')
     hyperparam.save_hyper(dr="/Users/andy/MainLand/Python/FeynGNN/model/test/")

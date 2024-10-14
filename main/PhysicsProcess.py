@@ -82,7 +82,7 @@ def rand_mom4(num_in, num_out, mass_in, mass_out, sig_mom=1000, seed=None):
 def minkowski_dot(p1, p2):
     return p1[0]*p2[0]-p1[1]*p2[1]-p1[2]*p2[2]-p1[3]*p2[3]
 
-def PairAnnihilation(particle, charge, seed):
+def PairAnnihilation(particle, charge, seed=None):
     p_in, p_out = rand_mom4(2,2, [MASS['muon'], MASS['muon']], [MASS['electron'], MASS['electron']], seed=seed)
     s = minkowski_dot(p_in[0]+p_in[1], p_in[0]+p_in[1])
     amp = 8/s**2 * (
@@ -108,7 +108,7 @@ def PairAnnihilation(particle, charge, seed):
     )
     return adj, node_feat, amp
 
-def CoulombScattering(particle, charge, seed):
+def CoulombScattering(particle, charge, seed=None):
     p_in, p_out = rand_mom4(2,2, [MASS['electron'], MASS['muon']], [MASS['electron'], MASS['muon']], seed=seed)
     amp = 8/(minkowski_dot(p_in[0]-p_out[0], p_in[0]-p_out[0])**2) * (
         minkowski_dot(p_in[0], p_in[1]) * minkowski_dot(p_out[0], p_out[1]) +
@@ -187,7 +187,7 @@ def MollerScattering(Ecm,charge:int, in_particle:str, out_particle:str, ang):
     #graph.set_adj()
     return graph
 
-def ComptonScattering(particle, charge, seed):
+def ComptonScattering(particle, charge, seed=None):
     #"t_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
     #"u_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
     p_in, p_out = rand_mom4(2, 2, [MASS[particle], 0], [MASS[particle], 0], seed=seed)
@@ -252,5 +252,4 @@ def PhotonCreation(Ecm,charge:int, in_particle:str, out_particle:str, ang):
     return graph
 
 if __name__ == '__main__':
-    a = torch.tensor([[1,1],[1,1]])
-    print(a.unsqueeze(0).shape)
+    print(PairAnnihilation(1,1,seed=1)[2])
