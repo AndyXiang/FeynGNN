@@ -176,9 +176,9 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
         for _ in range(num_batch):
             order.append(i)
     # train the model
-    model.train()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=hyperparam.lr)
     for epoch in range(hyperparam.num_epoch):
+        model.train()
         rd.shuffle(order)
         ite = [0 for _ in range(len_proc)]
         for t in tqdm(range(len_proc*num_batch) ,desc='epoch: '+str(epoch+1)):
@@ -215,16 +215,16 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
 
 if __name__ == '__main__':
     hyperparam = HyperParams(
-        node_emb_dim=32,
+        node_emb_dim=4,
         num_convs=2,
         pool_dim=32,
-        MLP_params=[(32, 256), (256, 512),(512, 64)],
+        MLP_params=[(32, 64),(64, 32)],
         act_func=nn.LeakyReLU(),
-        num_epoch=80,
-        batch_size=40,
+        num_epoch=200,
+        batch_size=50,
         loss_func=F.huber_loss,
-        lr=1e-4,
-        heads=8
+        lr=1e-3,
+        heads=2
     )
     model = Training('/Users/andy/MainLand/Python/FeynGNN/model/test/fig/',2500,hyperparam,loss_limit=1e-7,GPU=False)
     torch.save(model.state_dict(),'/Users/andy/MainLand/Python/FeynGNN/model/test/GNNmodel.pt')
