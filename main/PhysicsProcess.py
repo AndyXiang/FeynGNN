@@ -6,12 +6,12 @@ from scipy.optimize import fsolve
 
 MASS = {'electron': 0.51099895, 'muon':105.6583775, 'photon':0}
 
-PROC_LIST = ['PairAnnihilation','CoulombScattering','ComptonScattering']
+PROC_LIST = ['PairAnnihilation', 'BhabhaScattering','MollerScattering','CoulombScattering','ComptonScattering']
 
 ADJ_LIST = {
     "s_channel": np.array([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]]),
-    "t_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
-    "u_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
+    "u_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
+    "t_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
     #'PairAnnihilation': torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64),
     'PairAnnihilation': torch.tensor([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]],dtype=torch.int64),
     #'BhabhaScattering': torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64),
@@ -133,59 +133,74 @@ def CoulombScattering(particle, charge, seed=None):
     )
     return adj, node_feat, amp
 
-def BhabhaScattering(Ecm,charge:int, in_particle:str, out_particle:str, ang):
-    graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
-    edge_feat = torch.tensor(
-        [[-1,1],[1,2],[-1,1],[1,2],[-1,1],[1,2],[1,2],[-1,1]],dtype=torch.float
-    )
-    E_in, E_out = Ecm/2, Ecm/2
-    p_in = (E_in**2 - mass[in_particle]**2)**0.5
-    p_out = p_in
-    s = Ecm**2
-    t=-2*p_in**2*(1-cos(ang))
-    u=-2*p_in**2*(1+cos(ang))
-    amp = 2*((s**2+u**2)/(t**2)+2*(u**2)/(s*t)+(u**2+t**2)/(s**2))
-    node_feat = torch.tensor(
-            [
-                [mass[in_particle], -1, 1/2, E_in, p_in, 0,-1], 
-                [mass[in_particle], 1, 1/2, E_in, p_in, np.pi,-1], 
-                [mass['photon'], 0, 1, Ecm, 0, 0,0],
-                [mass[in_particle], -1, 1/2, E_out, p_out, ang,1],
-                [mass[in_particle], 1, 1/2, E_out, p_out, np.pi+ang,1]
-            ]
-        ,dtype=torch.float)
-    graph.set_feat_nodes(node_feat)
-    graph.set_feat_edges(edge_feat)
-    graph.set_amp(amp)
-    #graph.set_adj()
-    return graph
+def BhabhaScattering(particle, charge, seed=None):
+    p_in, p_out = rand_mom4(2,2, [MASS[particle], MASS[particle]], [MASS[particle], MASS[particle]], seed=seed)
+    s = minkowski_dot(p_in[0]+p_in[1],p_in[0]+p_in[1])
+    t = minkowski_dot(p_in[0]-p_out[0], p_in[0]-p_out[0])
+    u = minkowski_dot(p_in[0]-p_out[1], p_in[0]-p_out[1])
+    amp = 2*(t**2+u**2)/s**2
+    adj = np.array([
+        [1,1,1,0,0,0,0,0,0,0],
+        [1,1,1,0,0,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,0,1,1,0],
+        [0,0,0,0,0,0,1,1,0,1],
+        [0,0,0,0,0,1,1,1,1,1],
+        [0,0,0,0,0,1,0,1,1,0],
+        [0,0,0,0,0,0,1,1,0,1]
+    ])
+    temp0 = [MASS[particle], 1, 1/2]
+    temp1 = [MASS[particle], -1, 1/2]
+    nodes_feat = np.array([
+        temp0 + list(p_in[0]),
+        temp1 + list(p_in[1]),
+        [0, 0, 1] + list(p_in[0]+p_in[1]),
+        temp0 + list(p_out[0]),
+        temp1 + list(p_out[1]),
+        temp0 + list(p_in[0]),
+        temp1 + list(p_in[1]),
+        [0, 0, 1] + list(p_in[0]+p_in[1]),
+        temp0 + list(p_out[0]),
+        temp1 + list(p_out[1])
+    ])
+    return adj, nodes_feat, amp
 
-def MollerScattering(Ecm,charge:int, in_particle:str, out_particle:str, ang):
-    graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
-    edge_feat = torch.tensor(
-        [[1,2],[-1,1],[-1,1],[1,2],[-1,1],[-1,1],[1,2],[1,2]],dtype=torch.float
-    )
-    E_in, E_out = Ecm/2, Ecm/2
-    p_in = (E_in**2 - mass[in_particle]**2)**0.5
-    p_out = p_in
-    s = Ecm**2
-    t = -2*p_in**2*(1-cos(ang))
-    u = -2*p_in**2*(1+cos(ang))
-    amp = 2/(t*u)*(s**2-8*mass[in_particle]**2*s+12*mass[in_particle]**4)
-    node_feat = torch.tensor(
-            [
-                [mass[in_particle], charge, 1/2, E_in, p_in, 0,-1], 
-                [mass[in_particle], charge, 1/2, E_in, p_in, np.pi,-1], 
-                [mass['photon'], 0, 1, Ecm, 0, 0,0],
-                [mass[in_particle], charge, 1/2, E_out, p_out, ang,1],
-                [mass[in_particle], charge, 1/2, E_out, p_out, np.pi+ang,1]
-            ]
-        ,dtype=torch.float)
-    graph.set_feat_nodes(node_feat)
-    graph.set_feat_edges(edge_feat)
-    graph.set_amp(amp)
-    #graph.set_adj()
-    return graph
+def MollerScattering(particle, charge, seed=None):
+    p_in, p_out = rand_mom4(2,2, [MASS[particle], MASS[particle]], [MASS[particle], MASS[particle]], seed=seed)
+    s = minkowski_dot(p_in[0]+p_in[1],p_in[0]+p_in[1])
+    t = minkowski_dot(p_in[0]-p_out[0], p_in[0]-p_out[0])
+    u = minkowski_dot(p_in[0]-p_out[1], p_in[0]-p_out[1])
+    amp = (2/(t*u))*(s**2-8*MASS[particle]**2*s+12*MASS[particle]**4)
+    #"u_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
+    #"t_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
+    adj = np.array([
+        [1,0,1,1,0,0,0,0,0,0],
+        [0,1,1,0,1,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0,0,0],
+        [1,0,1,1,0,0,0,0,0,0],
+        [0,1,1,0,1,0,0,0,0,0],
+        [0,0,0,0,0,1,0,1,0,1],
+        [0,0,0,0,0,0,1,1,1,0],
+        [0,0,0,0,0,1,1,1,1,1],
+        [0,0,0,0,0,0,1,1,1,0],
+        [0,0,0,0,0,1,0,1,0,1]
+    ])
+    temp = [MASS[particle], charge, 1/2]
+    nodes_feat = np.array([
+        temp + list(p_in[0]),
+        temp + list(p_in[1]),
+        [0,0,1] + list(p_in[0]+p_in[1]),
+        temp + list(p_out[0]),
+        temp + list(p_out[1]),
+        temp + list(p_in[0]),
+        temp + list(p_in[1]),
+        [0,0,1] + list(p_in[0]+p_in[1]),
+        temp + list(p_out[0]),
+        temp + list(p_out[1]),
+    ])
+    return adj, nodes_feat, amp
 
 def ComptonScattering(particle, charge, seed=None):
     #"t_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
@@ -211,7 +226,7 @@ def ComptonScattering(particle, charge, seed=None):
     ])
     temp0 = [MASS[particle], charge, 1/2]
     temp1 = [0, 0, 1]
-    node_feat = np.array(
+    nodes_feat = np.array(
         [
             temp0 + list(p_in[0]),
             temp1 + list(p_in[1]),
@@ -225,17 +240,9 @@ def ComptonScattering(particle, charge, seed=None):
             temp0 + list(p_out[1]),
         ]
     )
-    return adj, node_feat, amp
+    return adj, nodes_feat, amp
 
-def PhotonCreation(Ecm,charge:int, in_particle:str, out_particle:str, ang):
-    graph = FeynGraph(num_nodes=5, num_edges=8, amp=0)
-    edge_feat = torch.tensor(
-        [[-1,2],[1,1],[1,1],[-1,2],[1,1],[1,1],[1,2],[1,2]],dtype=torch.float
-    )
-    E=Ecm/2
-    p = (E**2 - mass[in_particle]**2) ** 0.5
-    a = E**2 - E*p*cos(ang)
-    b = E**2 + E*p*cos(ang)
+def PhotonCreation(particle, charge, seed=None):
     amp = 2*(a/b+b/a+2*mass[in_particle]**2*(1/a+1/b)-mass[in_particle]**4*(1/a+1/b)**2)
     node_feat = torch.tensor(
             [

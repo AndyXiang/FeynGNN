@@ -11,35 +11,37 @@ import random as rd
 class GraphSet:
     def __init__(self, proc_list=pp.PROC_LIST):
         self.proc_list = proc_list
-        self.adj = []
-        self.nodes_feat = []
-        self.amp = []
+        self.dataset = [{'nodes_feat':[], 'adj':None, 'amp':[]} for _ in range(len(proc_list))]
         self.size = 0
 
-    def creator(
-            self, size:int=10000, seed = None
-        ):
+    def creator(self, size:int=10000, seed=1):
+        # The real size of each process is 4*size
         self.size = len(self.proc_list)*4*size
         for t in range(len(self.proc_list)):
             proc = getattr(pp, self.proc_list[t])
             for i in range(size):
-                adj, node_feat, amp = proc('electron', 1)
-                self.adj.append(adj)
-                self.nodes_feat.append(node_feat)
-                self.amp.append(amp)
-                adj, node_feat, amp = proc('electron', -1)
-                self.adj.append(adj)
-                self.nodes_feat.append(node_feat)
-                self.amp.append(amp)
-                adj, node_feat, amp = proc('muon', 1)
-                self.adj.append(adj)
-                self.nodes_feat.append(node_feat)
-                self.amp.append(amp)
-                adj, node_feat, amp = proc('muon', 1)
-                self.adj.append(adj)
-                self.nodes_feat.append(node_feat)
-                self.amp.append(amp)
+                for particle in iter(['electron', 'muon']):
+                    for charge in iter([1,-1]):
+                        seed += 1
+                        adj, nodes_feat, amp = proc(particle, charge, seed=seed)
+                        self.dataset[t]['nodes_feat'].append(nodes_feat)
+                        self.dataset[t]['amp'].append(amp)
+                        self.dataset[t]['adj'] = adj 
+            self.dataset[t]['nodes_feat'] = np.array(self.dataset[t]['nodes_feat'])
+            self.dataset[t]['amp'] = np.array(self.dataset[t]['amp'])
 
+    def clearer(self, amp_limit=1000):
+        # clear data that has abnormal amplitude
+        for t in range(len(self.proc_list)):
+            for i in range(int(self.size/len(self.proc_list))):
+                if self.dataset[t]['amp'][i] > amp_limit:
+                    proc = getattr(pp, self.proc_list[t])
+                    adj, nodes_feat, amp = proc('electron', 1, seed=np.random.randint(1, 1000))
+                    self.dataset[t]['nodes_feat'][i] = nodes_feat
+                    self.dataset[t]['amp'][i] = amp 
+                    self.clearer(amp_limit=amp_limit)
+
+    # the following three methods need to be written
     def saver(self, dir_root):
         for p in range(len(self.proc_list)):
             dic = {
@@ -83,22 +85,15 @@ class GraphSet:
         adj = []
         amp = []
         df = pd.read_csv(csv_file)
-        
 
 def hard_normalize(vec):
     return (vec - min(vec)) / (max(vec) - min(vec))
 
 
 if __name__ == '__main__':
-    dr = "/Users/andy/MainLand/Python/FeynGNN/data/test"
-    gr = GraphSet()
-    gr.creator(size=2)
-    gr.saver(dir_root=dr)
-    df = pd.read_csv(dr+'/test.csv')
-    for string in df['nodes_feat']:
-        string = string.strip('[]').strip('\n').split(' ')
-        string = [float(x) for x in string if x]
-        print(len(string))
+    ds = GraphSet()
+    ds.creator(1)
+    print(ds.dataset[0]['nodes_feat'].shape)
 
 
 
