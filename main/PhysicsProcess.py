@@ -4,9 +4,9 @@ from FeynGraph import FeynGraph
 from math import cos
 from scipy.optimize import fsolve
 
-MASS = {'electron': 0.51099895, 'muon':105.6583775, 'photon':0}
+MASS = {'electron': 0, 'muon':1.056583775, 'photon':0}
 
-PROC_LIST = ['PairAnnihilation', 'BhabhaScattering','MollerScattering','CoulombScattering','ComptonScattering']
+PROC_LIST = ['PairAnnihilation', 'BhabhaScattering','MollerScattering','ComptonScattering']
 
 ADJ_LIST = {
     "s_channel": np.array([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]]),
@@ -26,7 +26,7 @@ ADJ_LIST = {
     'PhotonCreation': torch.tensor([[1,0,1,1,1],[0,1,1,1,1],[1,1,1,1,1],[1,1,1,1,0],[1,1,1,0,1]],dtype=torch.int64)
 }
 
-def rand_mom4(num_in, num_out, mass_in, mass_out, sig_mom=1000, seed=None):
+def rand_mom4(num_in, num_out, mass_in, mass_out, sig_mom=5, seed=None):
     """ 
     return the 4-momentum for n external legs as a list of numpy array. mass_list should be np.ndarray.
     sig_mom are parameters of the normal distribution of momentum.

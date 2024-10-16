@@ -1,9 +1,9 @@
 node_emb_dim = 32
-num_convs = 2
-pool_dim = 32
-act_func = LeakyReLU(negative_slope=0.01)
-num_epoch = 80
-batch_size = 40
-loss_func = <function huber_loss at 0x1143c0360>
-lr = 0.0001
-heads = 8
+num_convs = 4
+pool_dim = 128
+act_func = LeakyReLU(negative_slope=0.01, inplace=True)
+num_epoch = 10
+batch_size = 80
+loss_func = <function mse_loss at 0x12c4c04a0>
+lr = 0.001
+heads = 2

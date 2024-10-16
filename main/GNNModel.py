@@ -97,6 +97,7 @@ class GNNModel(nn.Module):
             self.MLP.append(
                 nn.Sequential(
                     nn.Linear(t[0],t[1]),
+                    nn.BatchNorm1d(t[1]),
                     self.act_func,
                     nn.Dropout(0.1),
                 )
@@ -104,16 +105,18 @@ class GNNModel(nn.Module):
         self.MLP.append(nn.AvgPool1d(hyperparam.MLP_params[-1][1]))
 
         # Graph convolution layers
-        self.conv_share = GATLayer(node_feat_dim=node_feat_dim, node_emb_dim=hyperparam.node_emb_dim, heads=hyperparam.heads)
-        self.conv_mean = GATLayer(node_feat_dim=hyperparam.node_emb_dim, node_emb_dim=hyperparam.node_emb_dim, heads=hyperparam.heads)
+        self.convs = nn.ModuleList()
+        self.convs.append(GATLayer(node_feat_dim=node_feat_dim, node_emb_dim=hyperparam.node_emb_dim, heads=hyperparam.heads))
+        for i in range(hyperparam.num_convs-1):
+            self.convs.append(GATLayer(node_feat_dim=hyperparam.node_emb_dim, node_emb_dim=hyperparam.node_emb_dim, heads=hyperparam.heads))
 
     def forward(self, x, adj):
-        x = self.conv_share(x, adj)
-        x = self.conv_mean(x, adj)
+        for conv in self.convs:
+            x = conv(x, adj)
         x = self.poolin(torch.sum(x, dim=1))
         for layer in self.MLP:
             x = layer(x)
-        return x
+        return torch.exp(x)
 
 
 def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000):
@@ -123,13 +126,13 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
     # generate training dataset and testing dataset
     train_set = dh.GraphSet()
     train_set.creator(size=size, seed=seed)
-    train_set.clearer()
+    train_set.clearer(amp_limit=50)
     test_set = dh.GraphSet()
-    test_set.creator(size=25, seed=20+seed)
-    test_set.clearer()
+    test_set.creator(size=5, seed=20+seed)
+    test_set.clearer(amp_limit=50)
     validate_set = dh.GraphSet()
-    validate_set.creator(size=25, seed=50+seed)
-    validate_set.clearer()
+    validate_set.creator(size=5, seed=50+seed)
+    validate_set.clearer(amp_limit=50)
     # batchlize the training dataset
     num_batch = int(4*size/hyperparam.batch_size)
     batch = dh.GraphSet()
@@ -155,7 +158,7 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
     weights = model.state_dict()
     for name, param in weights.items():
         if 'weight' in name:
-            nn.init.kaiming_normal_(param.unsqueeze(0))
+            nn.init.xavier_normal_(param.unsqueeze(0))
             param.squeeze()
         elif 'bias' in name:
             param.data.fill_(0)
@@ -193,7 +196,7 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
         loss = []
         for t in range(len_proc):
             out = model(test_set.dataset[t]['nodes_feat'], test_set.dataset[t]['adj'])
-            loss.append(loss_func(out.view(100), test_set.dataset[t]['amp']).item())
+            loss.append(loss_func(out.view(20), test_set.dataset[t]['amp']).item())
             text = proc_list[t]+': loss =  '+str(loss[t])
             print(text)
         if sum(loss) < len_proc*loss_limit:
@@ -201,10 +204,10 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
     print("Model Training Completed.")
     model.to('cpu')
     for i in range(len_proc):
-        pred = model(validate_set.dataset[i]['nodes_feat'], validate_set.dataset[i]['adj']).view(100)
+        pred = model(validate_set.dataset[i]['nodes_feat'], validate_set.dataset[i]['adj']).view(20)
         text = proc_list[i] + ' RSquare: ' + str(r2(pred, validate_set.dataset[i]['amp']).item())
         print(text)
-        x = [j for j in range(100)]
+        x = [j for j in range(20)]
         plt.scatter(x, validate_set.dataset[i]['amp'].tolist(), label='Theoretical Calculation',s=10)
         plt.scatter(x, pred.tolist(), label='Model Predictions',s=10)
         plt.legend()
@@ -215,17 +218,17 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
 
 if __name__ == '__main__':
     hyperparam = HyperParams(
-        node_emb_dim=4,
-        num_convs=2,
-        pool_dim=32,
-        MLP_params=[(32, 64),(64, 32)],
-        act_func=nn.LeakyReLU(),
-        num_epoch=200,
-        batch_size=50,
-        loss_func=F.huber_loss,
+        node_emb_dim=32,
+        num_convs=4,
+        pool_dim=128,
+        MLP_params=[(128, 256),(256,256),(256, 128)],
+        act_func=nn.LeakyReLU(negative_slope=0.01, inplace=True),
+        num_epoch=10,
+        batch_size=80,
+        loss_func=F.mse_loss,
         lr=1e-3,
         heads=2
     )
-    model = Training('/Users/andy/MainLand/Python/FeynGNN/model/test/fig/',2500,hyperparam,loss_limit=1e-7,GPU=False)
+    model = Training('/Users/andy/MainLand/Python/FeynGNN/model/test/fig/',1000,hyperparam,loss_limit=1e-7,GPU=False)
     torch.save(model.state_dict(),'/Users/andy/MainLand/Python/FeynGNN/model/test/GNNmodel.pt')
     hyperparam.save_hyper(dr="/Users/andy/MainLand/Python/FeynGNN/model/test/")
