@@ -11,80 +11,52 @@ import random as rd
 class GraphSet:
     def __init__(self, proc_list=pp.PROC_LIST):
         self.proc_list = proc_list
-        self.dataset = [{'nodes_feat':[], 'adj':None, 'amp':[]} for _ in range(len(proc_list))]
+        self.dataset = [{'nodes_feat':[], 'amp':[]} for _ in range(len(proc_list))]
         self.size = 0
 
-    def creator(self, size:int=10000, seed=1):
+    def creator(self, size:int=10000):
         # The real size of each process is 4*size
-        self.size = len(self.proc_list)*4*size
+        self.size = 4*size
         for t in range(len(self.proc_list)):
             proc = getattr(pp, self.proc_list[t])
             for i in range(size):
                 for particle in iter(['electron', 'muon']):
                     for charge in iter([1,-1]):
-                        seed += 1
-                        adj, nodes_feat, amp = proc(particle, charge, seed=seed)
+                        nodes_feat, amp = proc(particle, charge)
                         self.dataset[t]['nodes_feat'].append(nodes_feat)
                         self.dataset[t]['amp'].append(amp)
-                        self.dataset[t]['adj'] = adj 
             self.dataset[t]['nodes_feat'] = np.array(self.dataset[t]['nodes_feat'])
             self.dataset[t]['amp'] = np.array(self.dataset[t]['amp'])
 
     def clearer(self, amp_limit=1000):
         # clear data that has abnormal amplitude
         for t in range(len(self.proc_list)):
-            for i in range(int(self.size/len(self.proc_list))):
-                if self.dataset[t]['amp'][i] > amp_limit:
+            for i in range(self.size):
+                while self.dataset[t]['amp'][i] > amp_limit:
                     proc = getattr(pp, self.proc_list[t])
-                    adj, nodes_feat, amp = proc('electron', 1, seed=np.random.randint(1, 1000))
+                    nodes_feat, amp = proc('electron', 1)
                     self.dataset[t]['nodes_feat'][i] = nodes_feat
                     self.dataset[t]['amp'][i] = amp 
-                    self.clearer(amp_limit=amp_limit)
 
     # the following three methods need to be written
     def saver(self, dir_root):
-        for p in range(len(self.proc_list)):
-            dic = {
-                'num_nodes': [], 
-                'nodes_feat': [],
-                'adj': [],
-                'amp': self.amp
-            }
-            for i in range(self.size):
-                dic['num_nodes'].append(self.adj[i].shape[0])
-                dic['nodes_feat'].append(self.nodes_feat[i].flatten())
-                dic['adj'].append(self.adj[i].flatten())
-            pd.DataFrame(dic).to_csv(dir_root+'/test.csv', index=False)
-
-    def spliter(self, ratio=(8,1,1),seed=100):
-        train_gs, test_gs, validate_gs = GraphSet(self.proc_list),GraphSet(self.proc_list),GraphSet(self.proc_list)
-        torch.manual_seed(seed)
-        rand_id = torch.randperm(self.size)
-        p1 = int(ratio[0]/(ratio[0]+ratio[1]+ratio[2])*self.size)
-        p2 = int((ratio[0]+ratio[1])/(ratio[0]+ratio[1]+ratio[2])*self.size)
         for i in range(len(self.proc_list)):
-            #train
-            train_gs.feat_nodes[i] = self.feat_nodes[i][rand_id[:p1]]
-            train_gs.feat_edges[i] = self.feat_edges[i][rand_id[:p1]]
-            train_gs.amp[i] = self.amp[i][rand_id[:p1]]
-            #test
-            test_gs.feat_nodes[i] = self.feat_nodes[i][rand_id[p1:p2]]
-            test_gs.feat_edges[i] = self.feat_edges[i][rand_id[p1:p2]]
-            test_gs.amp[i] = self.amp[i][rand_id[p1:p2]]
-            #validate
-            validate_gs.feat_nodes[i] = self.feat_nodes[i][rand_id[p2:]]
-            validate_gs.feat_edges[i] = self.feat_edges[i][rand_id[p2:]]
-            validate_gs.amp[i] = self.amp[i][rand_id[p2:]]
-        train_gs.size = len(train_gs.feat_nodes[0])
-        test_gs.size = len(test_gs.feat_nodes[0])
-        validate_gs.size = len(validate_gs.feat_nodes[0])
-        return train_gs,test_gs,validate_gs
+            folder_root = dir_root + '/' + pp.PROC_LIST[i]
+            if not os.path.exists(folder_root):
+                os.mkdir(folder_root)
+            num_nodes = pp.ADJ_LIST[pp.PROC_LIST[i]].shape[0]
+            np.savetxt(folder_root+'/feat.txt', self.dataset[i]['nodes_feat'].reshape(self.size, num_nodes*7))
+            np.savetxt(folder_root+'/amp.txt', self.dataset[i]['amp'])
 
-    def reader(self, csv_file):
-        feat_nodes = []
-        adj = []
-        amp = []
-        df = pd.read_csv(csv_file)
+    def reader(self, dir_root):
+        for i in range(len(self.proc_list)):
+            folder_root = dir_root + '/' + pp.PROC_LIST[i]
+            num_nodes = pp.ADJ_LIST[pp.PROC_LIST[i]].shape[0]
+            feat = np.loadtxt(folder_root+'/feat.txt')
+            amp = np.loadtxt(folder_root+'/amp.txt')
+            self.size = amp.shape[0]
+            self.dataset[i]['nodes_feat'] = feat.reshape(self.size, num_nodes, 7)
+            self.dataset[i]['amp'] = amp 
 
 def hard_normalize(vec):
     return (vec - min(vec)) / (max(vec) - min(vec))
@@ -92,9 +64,23 @@ def hard_normalize(vec):
 
 if __name__ == '__main__':
     ds = GraphSet()
-    ds.creator(1)
-    print(ds.dataset[0]['nodes_feat'].shape)
-
+    ds.creator(size=10000)
+    ds.clearer(amp_limit=100)
+    for i in range(len(pp.PROC_LIST)):
+        ds.dataset[i]['amp'] = hard_normalize(ds.dataset[i]['amp'])
+    ds.saver('data/train40000')
+    test = GraphSet()
+    test.creator(size=10)
+    test.clearer(amp_limit=100)
+    for i in range(len(pp.PROC_LIST)):
+        test.dataset[i]['amp'] = hard_normalize(test.dataset[i]['amp'])
+    test.saver('data/test40')
+    validate = GraphSet()
+    validate.creator(size=10)
+    validate.clearer(amp_limit=100)
+    for i in range(len(pp.PROC_LIST)):
+        validate.dataset[i]['amp'] = hard_normalize(validate.dataset[i]['amp'])
+    validate.saver('data/validate40')
 
 
 

@@ -12,7 +12,6 @@ import DataHelper as dh #data
 import random as rd
 import pandas as pd
 
-
 class HyperParams:
     def __init__(
         self,node_emb_dim:int, num_convs:int, pool_dim:int, 
@@ -40,7 +39,7 @@ class HyperParams:
             +"lr = "+str(self.lr)+'\n'
             +"heads = "+str(self.heads)+'\n'
         )
-        with open(dr+'hyperparams.txt','w') as f:
+        with open(dr+'/hyperparams.txt','w') as f:
             f.write(text)
 
 
@@ -119,22 +118,22 @@ class GNNModel(nn.Module):
         return torch.exp(x)
 
 
-def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, seed=1000):
-    r2 = R2Score()
+def r2(p_value, t_value):
+    m = torch.mean(p_value)
+    return torch.sum(torch.square(p_value - m)) / torch.sum(torch.square(t_value - m))
+
+def Training(hyperparam:HyperParams, loss_limit, GPU, fig_root):
     proc_list = pp.PROC_LIST
     len_proc = len(proc_list)
     # generate training dataset and testing dataset
     train_set = dh.GraphSet()
-    train_set.creator(size=size, seed=seed)
-    train_set.clearer(amp_limit=50)
     test_set = dh.GraphSet()
-    test_set.creator(size=5, seed=20+seed)
-    test_set.clearer(amp_limit=50)
     validate_set = dh.GraphSet()
-    validate_set.creator(size=5, seed=50+seed)
-    validate_set.clearer(amp_limit=50)
+    train_set.reader('data/train40000')
+    test_set.reader('data/test40')
+    validate_set.reader('data/validate40')
     # batchlize the training dataset
-    num_batch = int(4*size/hyperparam.batch_size)
+    num_batch = int(train_set.size/hyperparam.batch_size)
     batch = dh.GraphSet()
     batch.proc_list = train_set.proc_list
     for i in range(len_proc):
@@ -146,12 +145,9 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
             train_set.dataset[i]['amp'], 
             (num_batch, hyperparam.batch_size)
         ),dtype=torch.float32)
-        batch.dataset[i]['adj'] = torch.tensor(train_set.dataset[i]['adj'] ,dtype=torch.float32)
         test_set.dataset[i]['nodes_feat'] = torch.tensor(test_set.dataset[i]['nodes_feat'], dtype=torch.float32)
-        test_set.dataset[i]['adj'] = torch.tensor(test_set.dataset[i]['adj'], dtype=torch.float32)
         test_set.dataset[i]['amp'] = torch.tensor(test_set.dataset[i]['amp'], dtype=torch.float32)
         validate_set.dataset[i]['nodes_feat'] = torch.tensor(validate_set.dataset[i]['nodes_feat'], dtype=torch.float32)
-        validate_set.dataset[i]['adj'] = torch.tensor(validate_set.dataset[i]['adj'], dtype=torch.float32)
         validate_set.dataset[i]['amp'] = torch.tensor(validate_set.dataset[i]['amp'], dtype=torch.float32)
     # initiate the model and move the tensors to gpu when needed
     model = GNNModel(hyperparam=hyperparam)
@@ -168,11 +164,10 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
         r2.to('cuda')
         for i in range(len_proc):
             batch.dataset[i]['nodes_feat'] = batch.dataset[i]['nodes_feat'].to('cuda')
-            batch.dataset[i]['adj'] = batch.dataset[i]['adj'].to('cuda')
             batch.dataset[i]['amp'] = batch.dataset[i]['amp'].to('cuda')
             test_set.dataset[i]['nodes_feat'] = test_set.dataset[i]['nodes_feat'].to('cuda')
-            test_set.dataset[i]['adj'] = test_set.dataset[i]['adj'].to('cuda')
             test_set.dataset[i]['amp'] = test_set.dataset[i]['amp'].to('cuda')
+            pp.ADJ_LIST[pp.PROC_LIST[i]].to('cuda')
     # the random order for training on different processes
     order = []
     for i in range(len_proc):
@@ -186,7 +181,7 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
         ite = [0 for _ in range(len_proc)]
         for t in tqdm(range(len_proc*num_batch) ,desc='epoch: '+str(epoch+1)):
             proc = order[t]
-            out = model(batch.dataset[proc]['nodes_feat'][ite[proc]],  batch.dataset[proc]['adj'])
+            out = model(batch.dataset[proc]['nodes_feat'][ite[proc]],  pp.ADJ_LIST[pp.PROC_LIST[proc]])
             loss = loss_func(out.view(hyperparam.batch_size), batch.dataset[proc]['amp'][ite[proc]])
             optimizer.zero_grad()
             loss.backward()
@@ -195,8 +190,8 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
         model.eval()
         loss = []
         for t in range(len_proc):
-            out = model(test_set.dataset[t]['nodes_feat'], test_set.dataset[t]['adj'])
-            loss.append(loss_func(out.view(20), test_set.dataset[t]['amp']).item())
+            out = model(test_set.dataset[t]['nodes_feat'], pp.ADJ_LIST[pp.PROC_LIST[t]])
+            loss.append(loss_func(out.view(40), test_set.dataset[t]['amp']).item())
             text = proc_list[t]+': loss =  '+str(loss[t])
             print(text)
         if sum(loss) < len_proc*loss_limit:
@@ -204,31 +199,32 @@ def Training(dir_root,size, hyperparam:HyperParams, loss_limit=0.01, GPU=False, 
     print("Model Training Completed.")
     model.to('cpu')
     for i in range(len_proc):
-        pred = model(validate_set.dataset[i]['nodes_feat'], validate_set.dataset[i]['adj']).view(20)
+        pred = model(validate_set.dataset[i]['nodes_feat'], pp.ADJ_LIST[pp.PROC_LIST[i]]).view(40)
+        
         text = proc_list[i] + ' RSquare: ' + str(r2(pred, validate_set.dataset[i]['amp']).item())
         print(text)
-        x = [j for j in range(20)]
+        x = [j for j in range(40)]
         plt.scatter(x, validate_set.dataset[i]['amp'].tolist(), label='Theoretical Calculation',s=10)
         plt.scatter(x, pred.tolist(), label='Model Predictions',s=10)
         plt.legend()
-        plt.savefig(dir_root+proc_list[i]+'.png')
+        plt.savefig(dir_root+'/'+proc_list[i]+'.png')
         plt.close()
     return model
 
 
 if __name__ == '__main__':
     hyperparam = HyperParams(
-        node_emb_dim=32,
-        num_convs=4,
+        node_emb_dim=16,
+        num_convs=2,
         pool_dim=128,
         MLP_params=[(128, 256),(256,256),(256, 128)],
         act_func=nn.LeakyReLU(negative_slope=0.01, inplace=True),
-        num_epoch=10,
-        batch_size=80,
-        loss_func=F.mse_loss,
-        lr=1e-3,
-        heads=2
+        num_epoch=100,
+        batch_size=40,
+        loss_func=F.l1_loss,
+        lr=0.01,
+        heads=1
     )
-    model = Training('/Users/andy/MainLand/Python/FeynGNN/model/test/fig/',1000,hyperparam,loss_limit=1e-7,GPU=False)
-    torch.save(model.state_dict(),'/Users/andy/MainLand/Python/FeynGNN/model/test/GNNmodel.pt')
-    hyperparam.save_hyper(dr="/Users/andy/MainLand/Python/FeynGNN/model/test/")
+    model = Training(hyperparam,loss_limit=1e-7,GPU=False,fig_root='model/train40000/fig')
+    torch.save(model.state_dict(),'model/train40000/model.pt')
+    hyperparam.save_hyper(dr="model/train40000")

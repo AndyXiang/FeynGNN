@@ -6,32 +6,55 @@ from scipy.optimize import fsolve
 
 MASS = {'electron': 0, 'muon':1.056583775, 'photon':0}
 
-PROC_LIST = ['PairAnnihilation', 'BhabhaScattering','MollerScattering','ComptonScattering']
+PROC_LIST = ['PairAnnihilation', 'BhabhaScattering','MollerScattering','ComptonScattering', 'CoulombScattering']
 
 ADJ_LIST = {
-    "s_channel": np.array([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]]),
-    "u_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
-    "t_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
-    #'PairAnnihilation': torch.tensor([[0,0,1,2,2,3],[1,2,2,3,4,4]],dtype=torch.int64),
-    'PairAnnihilation': torch.tensor([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]],dtype=torch.int64),
-    #'BhabhaScattering': torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,4,3,4,4]],dtype=torch.int64),
-    'BhabhaScattering': torch.tensor([[1,1,1,1,0],[1,1,1,0,1],[1,1,1,1,1],[1,0,1,1,1],[0,1,1,1,1]],dtype=torch.int64),
-    #'MollerScattering': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64),
-    'MollerScattering': torch.tensor([[1,0,1,1,1],[0,1,1,1,1],[1,1,1,1,1],[1,1,1,1,0],[1,1,1,0,1]],dtype=torch.int64),
-    #'CoulombScattering': torch.tensor([[0,0,1,1,2,2],[2,3,2,4,3,4]],dtype=torch.int64),
-    'CoulombScattering': torch.tensor([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]],dtype=torch.int64),
-    #'ComptonScattering':torch.tensor([[0,0,0,1,1,2,2,3],[1,2,3,2,3,3,4,4]],dtype=torch.int64),
-    'ComptonScattering':torch.tensor([[1,1,1,1,0],[1,1,1,1,0],[1,1,1,1,1],[0,1,1,1,1],[0,1,1,1,1]],dtype=torch.int64),
-    #'PhotonCreation': torch.tensor([[0,0,0,1,1,1,2,2],[2,3,4,2,3,4,3,4]],dtype=torch.int64)
+    'PairAnnihilation': torch.tensor([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]],dtype=torch.float32),
+    'BhabhaScattering': torch.tensor([
+        [1,1,1,0,0,0,0,0,0,0],
+        [1,1,1,0,0,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,0,1,1,0],
+        [0,0,0,0,0,0,1,1,0,1],
+        [0,0,0,0,0,1,1,1,1,1],
+        [0,0,0,0,0,1,0,1,1,0],
+        [0,0,0,0,0,0,1,1,0,1]
+    ], dtype=torch.float32),
+    'MollerScattering':  torch.tensor([
+        [1,0,1,1,0,0,0,0,0,0],
+        [0,1,1,0,1,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0,0,0],
+        [1,0,1,1,0,0,0,0,0,0],
+        [0,1,1,0,1,0,0,0,0,0],
+        [0,0,0,0,0,1,0,1,0,1],
+        [0,0,0,0,0,0,1,1,1,0],
+        [0,0,0,0,0,1,1,1,1,1],
+        [0,0,0,0,0,0,1,1,1,0],
+        [0,0,0,0,0,1,0,1,0,1]
+    ], dtype=torch.float32),
+    'CoulombScattering': torch.tensor([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]], dtype=torch.float32),
+    'ComptonScattering':torch.tensor([
+        [1,1,1,0,0,0,0,0,0,0],
+        [1,1,1,0,0,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0,0,0],
+        [0,0,1,1,1,0,0,0,0,0],
+        [0,0,0,0,0,1,0,1,0,1],
+        [0,0,0,0,0,0,1,1,1,0],
+        [0,0,0,0,0,1,1,1,1,1],
+        [0,0,0,0,0,0,1,1,1,0],
+        [0,0,0,0,0,1,0,1,0,1]
+    ], dtype=torch.float32),
     'PhotonCreation': torch.tensor([[1,0,1,1,1],[0,1,1,1,1],[1,1,1,1,1],[1,1,1,1,0],[1,1,1,0,1]],dtype=torch.int64)
 }
 
-def rand_mom4(num_in, num_out, mass_in, mass_out, sig_mom=5, seed=None):
+def rand_mom4(num_in, num_out, mass_in, mass_out, sig_mom=5):
     """ 
     return the 4-momentum for n external legs as a list of numpy array. mass_list should be np.ndarray.
     sig_mom are parameters of the normal distribution of momentum.
     """
-    np.random.seed(seed)
     if num_in+num_out > 2:
         pass 
     else:
@@ -82,8 +105,8 @@ def rand_mom4(num_in, num_out, mass_in, mass_out, sig_mom=5, seed=None):
 def minkowski_dot(p1, p2):
     return p1[0]*p2[0]-p1[1]*p2[1]-p1[2]*p2[2]-p1[3]*p2[3]
 
-def PairAnnihilation(particle, charge, seed=None):
-    p_in, p_out = rand_mom4(2,2, [MASS['muon'], MASS['muon']], [MASS['electron'], MASS['electron']], seed=seed)
+def PairAnnihilation(particle, charge):
+    p_in, p_out = rand_mom4(2,2, [MASS['muon'], MASS['muon']], [MASS['electron'], MASS['electron']])
     s = minkowski_dot(p_in[0]+p_in[1], p_in[0]+p_in[1])
     amp = 8/s**2 * (
         minkowski_dot(p_in[0], p_out[0]) * minkowski_dot(p_in[1], p_out[1]) + 
@@ -92,7 +115,6 @@ def PairAnnihilation(particle, charge, seed=None):
         MASS['muon']**2 * minkowski_dot(p_in[0], p_in[1]) +
         2 * MASS['electron']**2 * MASS['muon']**2
     )
-    adj = np.array([[1,1,1,0,0],[1,1,1,0,0],[1,1,1,1,1],[0,0,1,1,1],[0,0,1,1,1]])
     temp0 = [MASS['muon'], -1, 1/2]
     temp1 = [MASS['muon'], 1, 1/2]
     temp2 = [MASS['electron'], -1, 1/2]
@@ -106,10 +128,10 @@ def PairAnnihilation(particle, charge, seed=None):
             temp3 + list(p_out[1])
         ]
     )
-    return adj, node_feat, amp
+    return node_feat, amp
 
-def CoulombScattering(particle, charge, seed=None):
-    p_in, p_out = rand_mom4(2,2, [MASS['electron'], MASS['muon']], [MASS['electron'], MASS['muon']], seed=seed)
+def CoulombScattering(particle, charge):
+    p_in, p_out = rand_mom4(2,2, [MASS['electron'], MASS['muon']], [MASS['electron'], MASS['muon']])
     amp = 8/(minkowski_dot(p_in[0]-p_out[0], p_in[0]-p_out[0])**2) * (
         minkowski_dot(p_in[0], p_in[1]) * minkowski_dot(p_out[0], p_out[1]) +
         minkowski_dot(p_in[0], p_out[1]) * minkowski_dot(p_in[1], p_out[0]) -
@@ -117,7 +139,6 @@ def CoulombScattering(particle, charge, seed=None):
         MASS['muon']**2 * minkowski_dot(p_in[0], p_out[1]) +
         2 * MASS['electron']**2 * MASS['muon']**2
     )
-    adj = np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]])
     temp0 = [MASS['electron'], charge, 1/2]
     temp1 = [MASS['muon'], -charge, 1/2]
     temp2 = [MASS['electron'], charge, 1/2]
@@ -131,26 +152,14 @@ def CoulombScattering(particle, charge, seed=None):
             temp3 + list(p_out[1])
         ]
     )
-    return adj, node_feat, amp
+    return node_feat, amp
 
-def BhabhaScattering(particle, charge, seed=None):
-    p_in, p_out = rand_mom4(2,2, [MASS[particle], MASS[particle]], [MASS[particle], MASS[particle]], seed=seed)
+def BhabhaScattering(particle, charge):
+    p_in, p_out = rand_mom4(2,2, [MASS[particle], MASS[particle]], [MASS[particle], MASS[particle]])
     s = minkowski_dot(p_in[0]+p_in[1],p_in[0]+p_in[1])
     t = minkowski_dot(p_in[0]-p_out[0], p_in[0]-p_out[0])
     u = minkowski_dot(p_in[0]-p_out[1], p_in[0]-p_out[1])
     amp = 2*(t**2+u**2)/s**2
-    adj = np.array([
-        [1,1,1,0,0,0,0,0,0,0],
-        [1,1,1,0,0,0,0,0,0,0],
-        [1,1,1,1,1,0,0,0,0,0],
-        [0,0,1,1,1,0,0,0,0,0],
-        [0,0,1,1,1,0,0,0,0,0],
-        [0,0,0,0,0,1,0,1,1,0],
-        [0,0,0,0,0,0,1,1,0,1],
-        [0,0,0,0,0,1,1,1,1,1],
-        [0,0,0,0,0,1,0,1,1,0],
-        [0,0,0,0,0,0,1,1,0,1]
-    ])
     temp0 = [MASS[particle], 1, 1/2]
     temp1 = [MASS[particle], -1, 1/2]
     nodes_feat = np.array([
@@ -165,28 +174,14 @@ def BhabhaScattering(particle, charge, seed=None):
         temp0 + list(p_out[0]),
         temp1 + list(p_out[1])
     ])
-    return adj, nodes_feat, amp
+    return nodes_feat, amp
 
-def MollerScattering(particle, charge, seed=None):
-    p_in, p_out = rand_mom4(2,2, [MASS[particle], MASS[particle]], [MASS[particle], MASS[particle]], seed=seed)
+def MollerScattering(particle, charge):
+    p_in, p_out = rand_mom4(2,2, [MASS[particle], MASS[particle]], [MASS[particle], MASS[particle]])
     s = minkowski_dot(p_in[0]+p_in[1],p_in[0]+p_in[1])
     t = minkowski_dot(p_in[0]-p_out[0], p_in[0]-p_out[0])
     u = minkowski_dot(p_in[0]-p_out[1], p_in[0]-p_out[1])
     amp = (2/(t*u))*(s**2-8*MASS[particle]**2*s+12*MASS[particle]**4)
-    #"u_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
-    #"t_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
-    adj = np.array([
-        [1,0,1,1,0,0,0,0,0,0],
-        [0,1,1,0,1,0,0,0,0,0],
-        [1,1,1,1,1,0,0,0,0,0],
-        [1,0,1,1,0,0,0,0,0,0],
-        [0,1,1,0,1,0,0,0,0,0],
-        [0,0,0,0,0,1,0,1,0,1],
-        [0,0,0,0,0,0,1,1,1,0],
-        [0,0,0,0,0,1,1,1,1,1],
-        [0,0,0,0,0,0,1,1,1,0],
-        [0,0,0,0,0,1,0,1,0,1]
-    ])
     temp = [MASS[particle], charge, 1/2]
     nodes_feat = np.array([
         temp + list(p_in[0]),
@@ -200,30 +195,18 @@ def MollerScattering(particle, charge, seed=None):
         temp + list(p_out[0]),
         temp + list(p_out[1]),
     ])
-    return adj, nodes_feat, amp
+    return nodes_feat, amp
 
-def ComptonScattering(particle, charge, seed=None):
+def ComptonScattering(particle, charge):
     #"t_channel": np.array([[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1],[1,0,1,1,0],[0,1,1,0,1]]),
     #"u_channel": np.array([[1,0,1,0,1],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[1,0,1,0,1]]),
-    p_in, p_out = rand_mom4(2, 2, [MASS[particle], 0], [MASS[particle], 0], seed=seed)
+    p_in, p_out = rand_mom4(2, 2, [MASS[particle], 0], [MASS[particle], 0])
     amp = 2 * (
         minkowski_dot(p_in[0], p_in[1]) / minkowski_dot(p_in[0], p_out[1]) + 
         minkowski_dot(p_in[0], p_out[1]) / minkowski_dot(p_in[0], p_in[1]) + 
         2*MASS[particle]**2 * (1/minkowski_dot(p_in[0], p_in[1]) - 1/minkowski_dot(p_in[0], p_out[1])) +
         MASS[particle]**4 * (1/minkowski_dot(p_in[0], p_in[1]) - 1/minkowski_dot(p_in[0], p_out[1]))**2
     )
-    adj = np.array([
-        [1,1,1,0,0,0,0,0,0,0],
-        [1,1,1,0,0,0,0,0,0,0],
-        [1,1,1,1,1,0,0,0,0,0],
-        [0,0,1,1,1,0,0,0,0,0],
-        [0,0,1,1,1,0,0,0,0,0],
-        [0,0,0,0,0,1,0,1,0,1],
-        [0,0,0,0,0,0,1,1,1,0],
-        [0,0,0,0,0,1,1,1,1,1],
-        [0,0,0,0,0,0,1,1,1,0],
-        [0,0,0,0,0,1,0,1,0,1]
-    ])
     temp0 = [MASS[particle], charge, 1/2]
     temp1 = [0, 0, 1]
     nodes_feat = np.array(
@@ -240,9 +223,9 @@ def ComptonScattering(particle, charge, seed=None):
             temp0 + list(p_out[1]),
         ]
     )
-    return adj, nodes_feat, amp
+    return nodes_feat, amp
 
-def PhotonCreation(particle, charge, seed=None):
+def PhotonCreation(particle, charge):
     amp = 2*(a/b+b/a+2*mass[in_particle]**2*(1/a+1/b)-mass[in_particle]**4*(1/a+1/b)**2)
     node_feat = torch.tensor(
             [
